@@ -19,6 +19,8 @@
 package org.apache.sedona.core.spatialRDD;
 
 import org.apache.sedona.core.spatialRddTool.StatCalculator;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
@@ -30,11 +32,44 @@ import org.locationtech.jts.io.WKTReader;
 
 import static org.junit.Assert.assertEquals;
 
-public class BoundaryAggregationTest
+public class BoundaryAggregationTest extends SpatialRDDTestBase
 {
 
     private final GeometryFactory factory = new GeometryFactory();
     private final WKTReader wktReader = new WKTReader();
+    private static String InputLocationWkt;
+
+    /**
+     * Once executed before all.
+     */
+    @BeforeClass
+    public static void onceExecutedBeforeAll()
+    {
+        initialize(BoundaryAggregationTest.class.getSimpleName(), "polygon.test.properties");
+        InputLocationWkt = "file://" + PolygonRDDTest.class.getClassLoader().getResource(prop.getProperty("inputLocationWkt")).getPath();
+    }
+
+    /**
+     * Tear down.
+     */
+    @AfterClass
+    public static void TearDown()
+    {
+        sc.stop();
+    }
+
+    @Test
+    public void testAnalyze()
+    {
+        int num_polygons = 10;
+        SpatialRDD<Geometry> spatialRDD = new SpatialRDD();
+        // Create num_polygons polygons which overlap each other
+        spatialRDD.rawSpatialRDD = sc.parallelize(createPolygonOverlapping(num_polygons));
+        spatialRDD.analyze();
+        assert spatialRDD.approximateTotalCount == 10;
+        assertEquals(spatialRDD.boundaryEnvelope, new Envelope(-1, num_polygons, 0, 1));
+    }
+
 
     @Test
     public void testAddPoints()

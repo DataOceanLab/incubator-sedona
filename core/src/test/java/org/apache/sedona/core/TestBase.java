@@ -25,6 +25,12 @@ import org.apache.sedona.core.serde.SedonaKryoRegistrator;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.serializer.KryoSerializer;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class TestBase
 {
@@ -40,6 +46,27 @@ public class TestBase
         sc = new JavaSparkContext(conf);
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
+    }
+
+    public static List<Geometry> createPolygonOverlapping(int size) {
+        GeometryFactory geometryFactory = new GeometryFactory();
+        List<Geometry> data = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            // Create polygons each of which only has 1 match in points
+            // Each polygon is an envelope like (-0.5, -0.5, 0.5, 0.5)
+            double minX = i - 1;
+            double minY = 0;
+            double maxX = i + 1;
+            double maxY = 1;
+            Coordinate[] coordinates = new Coordinate[5];
+            coordinates[0] = new Coordinate(minX, minY);
+            coordinates[1] = new Coordinate(minX, maxY);
+            coordinates[2] = new Coordinate(maxX, maxY);
+            coordinates[3] = new Coordinate(maxX, minY);
+            coordinates[4] = coordinates[0];
+            data.add(geometryFactory.createPolygon(coordinates));
+        }
+        return data;
     }
 }
 
