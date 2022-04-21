@@ -80,6 +80,18 @@ public class SpatialRDD<T extends Geometry>
      * The total number of records.
      */
     public long approximateTotalCount = -1;
+    /**
+     * The average mbrArea of the records.
+     */
+    public double avgMBRArea = -1;
+    /**
+     * The average lenX of the records.
+     */
+    public double avgLenX = -1;
+    /**
+     * The average lenY  of the records.
+     */
+    public double avgLenY = -1;
 
     /**
      * The boundary envelope.
@@ -493,18 +505,28 @@ public class SpatialRDD<T extends Geometry>
         if (agg != null) {
             this.boundaryEnvelope = agg.getBoundary();
             this.approximateTotalCount = agg.getCount();
+            this.avgMBRArea=agg.getAvgMbrArea();
+            this.avgLenX=agg.getAvgLenX();
+            this.avgLenY=agg.getAvgLenY();
         }
         else {
             this.boundaryEnvelope = null;
             this.approximateTotalCount = 0;
+            this.avgMBRArea=0.0;
+            this.avgLenX=0.0;
+            this.avgLenY=0.0;
         }
         return true;
     }
 
-    public boolean analyze(Envelope datasetBoundary, Integer approximateTotalCount)
+    public boolean analyze(Envelope datasetBoundary, Integer approximateTotalCount,Double avgMBRArea,Double avgLenX,Double avgLenY)
     {
         this.boundaryEnvelope = datasetBoundary;
         this.approximateTotalCount = approximateTotalCount;
+        this.avgMBRArea=avgMBRArea;
+        this.avgLenX=avgLenX;
+        this.avgLenY=avgLenY;
+
         return true;
     }
 

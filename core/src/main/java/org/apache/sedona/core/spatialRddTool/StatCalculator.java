@@ -30,8 +30,12 @@ public class StatCalculator
 {
     private final Envelope boundary;
     private final long count;
+    private final double sumArea;
+    private final double sumX;
+    private final double sumY;
 
-    public StatCalculator(Envelope boundary, long count)
+
+    public StatCalculator(Envelope boundary, long count,double sumArea,double sumX,double sumY)
     {
         Objects.requireNonNull(boundary, "Boundary cannot be null");
         if (count <= 0) {
@@ -39,6 +43,9 @@ public class StatCalculator
         }
         this.boundary = boundary;
         this.count = count;
+        this.sumArea=sumArea;
+        this.sumX=sumX;
+        this.sumY=sumY;
     }
 
     public static StatCalculator combine(StatCalculator agg1, StatCalculator agg2)
@@ -51,10 +58,10 @@ public class StatCalculator
         if (agg2 == null) {
             return agg1;
         }
-
+        Envelope res=StatCalculator.combine(agg1.boundary, agg2.boundary);
         return new StatCalculator(
-                StatCalculator.combine(agg1.boundary, agg2.boundary),
-                agg1.count + agg2.count);
+                res,
+                agg1.count + agg2.count, agg1.sumArea+ agg2.sumArea,agg1.sumX+ agg2.sumX,agg1.sumY+ agg2.sumY);
     }
 
     public static Envelope combine(Envelope agg1, Envelope agg2)
@@ -84,7 +91,11 @@ public class StatCalculator
     public static StatCalculator add(StatCalculator agg, Geometry object)
             throws Exception
     {
-        return combine(new StatCalculator(object.getEnvelopeInternal(), 1), agg);
+        //System.out.println(object.getEnvelopeInternal().getMaxX()-object.getEnvelopeInternal().getMinX());
+        //System.out.println(object.getEnvelopeInternal().getMaxY()-object.getEnvelopeInternal().getMinY());
+        return combine(new StatCalculator(object.getEnvelopeInternal(), 1,object.getEnvelope().getArea(),
+                object.getEnvelopeInternal().getMaxX()-object.getEnvelopeInternal().getMinX(),
+                object.getEnvelopeInternal().getMaxY()-object.getEnvelopeInternal().getMinY()), agg);
     }
 
     public Envelope getBoundary()
@@ -96,4 +107,7 @@ public class StatCalculator
     {
         return count;
     }
+    public double getAvgMbrArea(){return sumArea/count;}
+    public double getAvgLenX(){return sumX/count;}
+    public double getAvgLenY(){return sumY/count;}
 }

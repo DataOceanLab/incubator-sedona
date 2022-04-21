@@ -59,18 +59,18 @@ public class BoundaryAndCountAggregationTest
     public void testCombine()
             throws Exception
     {
-        StatCalculator agg = StatCalculator.combine(null, new StatCalculator(new Envelope(0, 1, 0, 1), 10));
+        StatCalculator agg = StatCalculator.combine(null, new StatCalculator(new Envelope(0, 1, 0, 1), 10,1.0,1,1));
         assertEquals(10, agg.getCount());
         assertEquals(new Envelope(0, 1, 0, 1), agg.getBoundary());
 
         {
-            StatCalculator newAgg = StatCalculator.combine(agg, new StatCalculator(new Envelope(0.4, 1.2, 0.5, 1.7), 5));
+            StatCalculator newAgg = StatCalculator.combine(agg, new StatCalculator(new Envelope(0.4, 1.2, 0.5, 1.7), 5,0.96,0.8,1.2));
             assertEquals(15, newAgg.getCount());
             assertEquals(new Envelope(0, 1.2, 0, 1.7), newAgg.getBoundary());
         }
 
         {
-            StatCalculator newAgg = StatCalculator.combine(agg, new StatCalculator(new Envelope(0.1, 0.5, 0.2, 0.8), 3));
+            StatCalculator newAgg = StatCalculator.combine(agg, new StatCalculator(new Envelope(0.1, 0.5, 0.2, 0.8), 3,0.24,0.4,0.6));
             assertEquals(13, newAgg.getCount());
             assertEquals(new Envelope(0, 1, 0, 1), newAgg.getBoundary());
         }
