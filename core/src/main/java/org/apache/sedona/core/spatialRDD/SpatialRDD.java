@@ -29,6 +29,7 @@ import org.apache.sedona.core.spatialRddTool.IndexBuilder;
 import org.apache.sedona.core.spatialRddTool.StatCalculator;
 import org.apache.sedona.core.utils.GeomUtils;
 import org.apache.sedona.core.utils.RDDSampleUtils;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
@@ -38,12 +39,7 @@ import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.util.random.SamplingUtils;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Envelope;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.LinearRing;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.*;
 import org.locationtech.jts.index.SpatialIndex;
 import org.locationtech.jts.io.WKBWriter;
 import org.locationtech.jts.io.WKTWriter;
@@ -516,6 +512,16 @@ public class SpatialRDD<T extends Geometry>
             this.avgLenX=0.0;
             this.avgLenY=0.0;
         }
+        int l=4;
+        //JavaPairRDD<Coordinate, Integer> pairs = this.rawSpatialRDD.mapToPair(s -> new Tuple2( new Coordinate(Math.floor(s.getCentroid().getX()/l), Math.floor(s.getCentroid().getY()/l)) , 1));
+        // pairing box counting results
+        JavaPairRDD<Coordinate, Integer> pairs = this.rawSpatialRDD.mapToPair(s -> new Tuple2( new Tuple2(Math.floor(s.getCentroid().getX()/l), Math.floor(s.getCentroid().getY()/l)) , 1));
+        // getting the final result by reduceBy
+        JavaPairRDD<Coordinate, Integer> countsInEachCell = pairs.reduceByKey((a, b) -> a + b);
+        for (Tuple2 a:countsInEachCell.collect()) {
+            System.out.println( a._1+"  : "+ a._2);
+        }
+
         return true;
     }
 

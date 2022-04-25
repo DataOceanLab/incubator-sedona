@@ -91,8 +91,6 @@ public class StatCalculator
     public static StatCalculator add(StatCalculator agg, Geometry object)
             throws Exception
     {
-        //System.out.println(object.getEnvelopeInternal().getMaxX()-object.getEnvelopeInternal().getMinX());
-        //System.out.println(object.getEnvelopeInternal().getMaxY()-object.getEnvelopeInternal().getMinY());
         return combine(new StatCalculator(object.getEnvelopeInternal(), 1,object.getEnvelope().getArea(),
                 object.getEnvelopeInternal().getMaxX()-object.getEnvelopeInternal().getMinX(),
                 object.getEnvelopeInternal().getMaxY()-object.getEnvelopeInternal().getMinY()), agg);
