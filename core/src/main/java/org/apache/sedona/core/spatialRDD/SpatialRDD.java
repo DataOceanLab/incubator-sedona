@@ -20,6 +20,7 @@
 package org.apache.sedona.core.spatialRDD;
 
 import org.apache.commons.lang.NullArgumentException;
+import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.log4j.Logger;
 import org.apache.sedona.core.enums.GridType;
 import org.apache.sedona.core.enums.IndexType;
@@ -88,7 +89,14 @@ public class SpatialRDD<T extends Geometry>
      * The average lenY  of the records.
      */
     public double avgLenY = -1;
-
+    /**
+     * E0.
+     */
+    public double E_0 = -1;
+    /**
+     * E2.
+     */
+    public double E_2 = -1;
     /**
      * The boundary envelope.
      */
@@ -512,15 +520,49 @@ public class SpatialRDD<T extends Geometry>
             this.avgLenX=0.0;
             this.avgLenY=0.0;
         }
-        int l=4;
+        int[] l=new int[]{2,3,5,7,9,11};
+        double sumBC2=0;
+        int i=0;
+        double[][] datapPointsBC0=new double[6][2];
+        double[][] datapPointsBC2=new double[6][2];
+
+        List <Tuple2> bc0Points=new ArrayList<Tuple2>();
         //JavaPairRDD<Coordinate, Integer> pairs = this.rawSpatialRDD.mapToPair(s -> new Tuple2( new Coordinate(Math.floor(s.getCentroid().getX()/l), Math.floor(s.getCentroid().getY()/l)) , 1));
         // pairing box counting results
-        JavaPairRDD<Coordinate, Integer> pairs = this.rawSpatialRDD.mapToPair(s -> new Tuple2( new Tuple2(Math.floor(s.getCentroid().getX()/l), Math.floor(s.getCentroid().getY()/l)) , 1));
+        for (int len:l) {
+            sumBC2=0;
+            JavaPairRDD<Coordinate, Integer> pairs = this.rawSpatialRDD.mapToPair(s -> new Tuple2( new Tuple2(Math.floor(s.getCentroid().getX()/len), Math.floor(s.getCentroid().getY()/len)) , 1));
+            // getting the final result by reduceBy
+            JavaPairRDD<Coordinate, Integer> countsInEachCell = pairs.reduceByKey((a, b) -> a + b);
+            for (Tuple2 a:countsInEachCell.collect()) {
+                int val= (int) a._2;
+                sumBC2=sumBC2+Math.pow(val,2);// getting the value of BC2 = summation of counts square in each cell.
+            }
+            bc0Points.add(new Tuple2<>(len,sumBC2));
+            datapPointsBC0[i][0]=Math.log(len);
+            datapPointsBC0[i][1]=Math.log(countsInEachCell.count());//storing points in 2D array for regression BC0.
+            datapPointsBC2[i][0]=Math.log(len);
+            datapPointsBC2[i][1]=Math.log(sumBC2);//storing points in 2D array for regression BC2.
+            i++;
+        }
+        /*for (Tuple2 t:bc0Points) {
+            System.out.println(t._1+" :"+t._2);
+        }*/
+        SimpleRegression regression = new SimpleRegression();
+        regression.addData(datapPointsBC0);
+        this.E_0=regression.getSlope();
+        System.out.println("E0 Slope: "+ E_0);
+        regression.addData(datapPointsBC2);
+        this.E_2=regression.getSlope();
+        System.out.println("E2 Slope: "+ E_2);
+
+
+        /*JavaPairRDD<Coordinate, Integer> pairs = this.rawSpatialRDD.mapToPair(s -> new Tuple2( new Tuple2(Math.floor(s.getCentroid().getX()/l), Math.floor(s.getCentroid().getY()/l)) , 1));
         // getting the final result by reduceBy
         JavaPairRDD<Coordinate, Integer> countsInEachCell = pairs.reduceByKey((a, b) -> a + b);
         for (Tuple2 a:countsInEachCell.collect()) {
             System.out.println( a._1+"  : "+ a._2);
-        }
+        }*/
 
         return true;
     }
