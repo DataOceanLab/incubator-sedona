@@ -49,15 +49,13 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 import org.wololo.geojson.Feature;
 import org.wololo.jts2geojson.GeoJSONWriter;
+import scala.Int;
 import scala.Tuple2;
+import scala.Tuple3;
+import visad.Tuple;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 // TODO: Auto-generated Javadoc
 
@@ -548,13 +546,83 @@ public class SpatialRDD<T extends Geometry>
         /*for (Tuple2 t:bc0Points) {
             System.out.println(t._1+" :"+t._2);
         }*/
+        /*for (int j = 0; j < 6; j++) {
+            System.out.println("BC0 points:");
+            System.out.println(datapPointsBC0[j][0]+" "+datapPointsBC0[j][1]);
+            System.out.println("BC2 points:");
+            System.out.println(datapPointsBC2[j][0]+" "+datapPointsBC2[j][1]);
+        }*/
         SimpleRegression regression = new SimpleRegression();
         regression.addData(datapPointsBC0);
         this.E_0=regression.getSlope();
         System.out.println("E0 Slope: "+ E_0);
-        regression.addData(datapPointsBC2);
-        this.E_2=regression.getSlope();
+        SimpleRegression regression2 = new SimpleRegression();
+        regression2.addData(datapPointsBC2);
+        this.E_2=regression2.getSlope();
         System.out.println("E2 Slope: "+ E_2);
+
+        System.out.println("New Method:");
+        double sumBC2f=0;
+        int iff=0;
+        double[][] datapPointsBC0f=new double[6][2];
+        double[][] datapPointsBC2f=new double[6][2];
+        JavaPairRDD<Tuple3<Double,Double,Double>, Integer> flatmaptopairresult = this.rawSpatialRDD.flatMapToPair(s -> {
+            List<Tuple2<String, Integer>> resulttuple=new ArrayList<>();
+            double[] le=new double[]{2,3,5,7,9,11};
+            //Tuple3<Double,Double,Double> res;
+            List<Tuple2<Tuple3<Double,Double,Double>, Integer>> resu=new ArrayList<>();
+            for (double li:le) {
+                //resulttuple.add(new Tuple2<>(tmp,1));
+                resu.add(new Tuple2<Tuple3<Double,Double,Double>, Integer>(new Tuple3<>(Math.floor(s.getCentroid().getX()/li), Math.floor(s.getCentroid().getY()/li),li),1));
+
+            }
+            return resu.iterator();
+        });
+        // getting the reduced by result like this (x,y,len)-> count
+        JavaPairRDD<Tuple3<Double,Double,Double>, Integer> countsInEachCell = flatmaptopairresult.reduceByKey((a, b) -> a + b);
+        // Mapping the previous reduced by result to get the sum of bc0 for mapping to each length. Example: len-> count (Ex: 2->1)
+        JavaPairRDD<Double, Double> BC0Map = countsInEachCell.mapToPair(s -> new Tuple2<Double,Double>((double) ((Tuple3) s._1)._3(),1.00));
+        // Reduced the BC0Map to get the total count of each length. . Example: len-> count (Ex: 2->5)
+        JavaPairRDD<Double, Double> BC0Value = BC0Map.reduceByKey((a, b) -> a + b);
+        // Mapping the countsInEachCell reduced by result to get the square of count for bc2 for mapping to each length. Example: len-> count (Ex: 2->2^2=4)
+        JavaPairRDD<Double, Double> BC2pair = countsInEachCell.mapToPair(s ->
+        {
+            int val=s._2;
+            return new Tuple2<Double,Double>((double) ((Tuple3) s._1)._3(), (double) Math.pow(val,2));
+        });
+        // Reduced the BC2Map to get the total sum of each length. . Example: len-> count (Ex: 2->2^2+...+2^2=20)
+        JavaPairRDD<Double, Double> BC2Value = BC2pair.reduceByKey((a, b) -> a + b);
+        int index=0;
+        //Creating the data points for BC_0
+        BC0Value=BC0Value.sortByKey();
+        for (Tuple2 a:BC0Value.collect()) {
+            double length=(double)a._1;
+            double val=(double)a._2;
+            datapPointsBC0f[index][0]=Math.log((double) a._1);
+            datapPointsBC0f[index][1]=Math.log(val);
+            index++;
+        }
+        index=0;
+        //Creating the data points for BC_2
+        BC2Value=BC2Value.sortByKey();
+        for (Tuple2 a:BC2Value.collect()) {
+            double length=(double) a._1;
+            double val=(double)a._2;
+            datapPointsBC2f[index][0]=Math.log(length);
+            datapPointsBC2f[index][1]=Math.log(val);
+            index++;
+        }
+
+        SimpleRegression reg_E0 = new SimpleRegression();
+        reg_E0.addData(datapPointsBC0f);
+        this.E_0=reg_E0.getSlope();
+        System.out.println("E0 Slope: "+ E_0);
+        SimpleRegression reg_E2 = new SimpleRegression();
+        reg_E2.addData(datapPointsBC2f);
+        this.E_2=reg_E2.getSlope();
+        System.out.println("E2 Slope: "+ E_2);
+
+
 
 
         /*JavaPairRDD<Coordinate, Integer> pairs = this.rawSpatialRDD.mapToPair(s -> new Tuple2( new Tuple2(Math.floor(s.getCentroid().getX()/l), Math.floor(s.getCentroid().getY()/l)) , 1));
