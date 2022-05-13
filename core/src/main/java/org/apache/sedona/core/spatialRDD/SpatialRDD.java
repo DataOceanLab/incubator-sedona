@@ -88,6 +88,18 @@ public class SpatialRDD<T extends Geometry>
      */
     public double avgLenY = -1;
     /**
+     * The total area after spatial partitioning.
+     */
+    public double TT_area = 0;
+    /**
+     * The Total cell or partitions after spatial partitioning.
+     */
+    public long total_cells = 0;
+    /**
+     * The total semiperimeter after spatial partitioning.
+     */
+    public double TT_margin = 0;
+    /**
      * E0.
      */
     public double E_0 = -1;
@@ -208,7 +220,39 @@ public class SpatialRDD<T extends Geometry>
     {
         int numPartitions = this.rawSpatialRDD.rdd().partitions().length;
         spatialPartitioning(gridType, numPartitions);
+        this.analyzePartition();
         return true;
+    }
+    public void analyzePartition()
+            throws Exception
+    {
+        this.total_cells=this.spatialPartitionedRDD.getNumPartitions();
+        JavaRDD<Tuple2<Double,Double>> mapJavaRDD = this.spatialPartitionedRDD.mapPartitions(new FlatMapFunction<Iterator<T>, Tuple2<Double,Double>>() {
+            @Override
+            public Iterator<Tuple2<Double,Double>> call(Iterator<T> tIterator) throws Exception {
+                ArrayList<Tuple2<Double,Double>> wkbs = new ArrayList<>();
+                int count=0;
+                Envelope accENV=new Envelope(0,0,0,0);
+                while(tIterator.hasNext()){
+                    Geometry spatialObject = tIterator.next();
+                    Envelope spatialObjectMBr= spatialObject.getEnvelopeInternal();
+                    accENV.expandToInclude(spatialObjectMBr);
+                }
+                double envMBRArea=accENV.getArea();
+                double envSemiPerim=(accENV.getHeight()+ accENV.getWidth())/2;
+                wkbs.add(new Tuple2<>(envMBRArea,envSemiPerim));
+                return wkbs.iterator();
+            }
+        });
+        for (Tuple2 data:mapJavaRDD.collect()) {
+            this.TT_area=this.TT_area+ (double)data._1;
+            this.TT_margin=this.TT_margin+ (double)data._2;
+        }
+        System.out.println("TT_area: "+this.TT_area);
+        System.out.println("TT_margin: "+this.TT_margin);
+        System.out.println("total_cells: "+this.total_cells);
+
+
     }
 
     /**

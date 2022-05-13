@@ -18,6 +18,7 @@
  */
 package org.apache.sedona.core.spatialRDD;
 
+import org.apache.sedona.core.enums.GridType;
 import org.apache.sedona.core.spatialRddTool.StatCalculator;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -59,13 +60,14 @@ public class BoundaryAggregationTest extends SpatialRDDTestBase
     }
 
     @Test
-    public void testAnalyze()
-    {
+    public void testAnalyze() throws Exception {
         int num_polygons = 10;
         SpatialRDD<Geometry> spatialRDD = new SpatialRDD();
         // Create num_polygons polygons which overlap each other
         spatialRDD.rawSpatialRDD = sc.parallelize(createPolygonOverlapping(num_polygons));
         spatialRDD.analyze();
+        spatialRDD.spatialPartitioning(GridType.KDBTREE);
+
         assert spatialRDD.approximateTotalCount == 10;
         assert spatialRDD.avgMBRArea == 2.0;
         assert spatialRDD.avgLenX == 2.0;
