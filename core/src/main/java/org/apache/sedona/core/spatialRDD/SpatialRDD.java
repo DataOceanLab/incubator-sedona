@@ -52,6 +52,7 @@ import org.wololo.jts2geojson.GeoJSONWriter;
 import scala.Int;
 import scala.Tuple2;
 import scala.Tuple3;
+import scala.Tuple4;
 import visad.Tuple;
 
 import java.io.Serializable;
@@ -99,6 +100,14 @@ public class SpatialRDD<T extends Geometry>
      * The total semiperimeter after spatial partitioning.
      */
     public double TT_margin = 0;
+    /**
+     * The total Overlap area.
+     */
+    public double TT_overlap = 0.0;
+    /**
+     * The total Overlap area.
+     */
+    public double load_balance = 0.0;
     /**
      * E0.
      */
@@ -227,27 +236,48 @@ public class SpatialRDD<T extends Geometry>
             throws Exception
     {
         this.total_cells=this.spatialPartitionedRDD.getNumPartitions();
-        JavaRDD<Tuple2<Double,Double>> mapJavaRDD = this.spatialPartitionedRDD.mapPartitions(new FlatMapFunction<Iterator<T>, Tuple2<Double,Double>>() {
+        double avgCard=this.spatialPartitionedRDD.count()/this.spatialPartitionedRDD.getNumPartitions();
+        JavaRDD<Tuple4<Double,Double,Envelope,Double>> mapJavaRDD = this.spatialPartitionedRDD.mapPartitions(new FlatMapFunction<Iterator<T>, Tuple4<Double,Double,Envelope,Double>>() {
             @Override
-            public Iterator<Tuple2<Double,Double>> call(Iterator<T> tIterator) throws Exception {
-                ArrayList<Tuple2<Double,Double>> wkbs = new ArrayList<>();
+            public Iterator<Tuple4<Double,Double,Envelope,Double>> call(Iterator<T> tIterator) throws Exception {
+                ArrayList<Tuple4<Double,Double,Envelope,Double>> wkbs = new ArrayList<>();
+                ArrayList<Envelope> partitionENV = new ArrayList<>();
                 int count=0;
                 Envelope accENV=new Envelope(0,0,0,0);
                 while(tIterator.hasNext()){
                     Geometry spatialObject = tIterator.next();
                     Envelope spatialObjectMBr= spatialObject.getEnvelopeInternal();
                     accENV.expandToInclude(spatialObjectMBr);
+                    count++;
                 }
+                double partitionLBCalc=Math.pow((double) (count-avgCard),2);// Cardinality per partition minus avgCard
+                partitionENV.add(accENV);
                 double envMBRArea=accENV.getArea();
                 double envSemiPerim=(accENV.getHeight()+ accENV.getWidth())/2;
-                wkbs.add(new Tuple2<>(envMBRArea,envSemiPerim));
+                wkbs.add(new Tuple4<>(envMBRArea,envSemiPerim,accENV,partitionLBCalc));
                 return wkbs.iterator();
             }
         });
-        for (Tuple2 data:mapJavaRDD.collect()) {
-            this.TT_area=this.TT_area+ (double)data._1;
-            this.TT_margin=this.TT_margin+ (double)data._2;
+        for (Tuple4 data:mapJavaRDD.collect()) {
+            this.TT_area=this.TT_area+ (double)data._1();
+            this.TT_margin=this.TT_margin+ (double)data._2();
+            this.load_balance=this.load_balance+(double)data._4();
         }
+        this.load_balance=Math.sqrt((this.load_balance/this.spatialPartitionedRDD.count()));
+        for (int i = 0; i < mapJavaRDD.count(); i++) {
+            double sumareai=0;
+            for (int j = 0; j < mapJavaRDD.count(); j++) {
+                if(i==j){
+                    continue;
+                }
+                else {
+                    sumareai=sumareai+mapJavaRDD.collect().get(i)._3().intersection(mapJavaRDD.collect().get(j)._3()).getArea();
+                }
+            }
+            this.TT_overlap=this.TT_overlap+sumareai;
+        }
+        System.out.println("Overlap: "+this.TT_overlap);
+        System.out.println("Load Balance:"+ this.load_balance);
         System.out.println("TT_area: "+this.TT_area);
         System.out.println("TT_margin: "+this.TT_margin);
         System.out.println("total_cells: "+this.total_cells);
