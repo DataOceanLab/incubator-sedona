@@ -49,13 +49,12 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 import org.wololo.geojson.Feature;
 import org.wololo.jts2geojson.GeoJSONWriter;
-import scala.Int;
-import scala.Tuple2;
-import scala.Tuple3;
-import scala.Tuple4;
+import scala.*;
 import visad.Tuple;
 
 import java.io.Serializable;
+import java.lang.Double;
+import java.lang.Long;
 import java.util.*;
 
 // TODO: Auto-generated Javadoc
@@ -108,6 +107,18 @@ public class SpatialRDD<T extends Geometry>
      * The total Overlap area.
      */
     public double load_balance = 0.0;
+    /**
+     * The MBR area Overlapping for first dateset.
+     */
+    public double overlapMBRFirstDS = 0.0;
+    /**
+     * The MBR area Overlapping for Second dateset.
+     */
+    public double overlapMBRSecondDS = 0.0;
+    /**
+     * The Jaccard similarity between two datasets.
+     */
+    public double jaccardSimilarity = 0.0;
     /**
      * E0.
      */
@@ -236,13 +247,14 @@ public class SpatialRDD<T extends Geometry>
             throws Exception
     {
         this.total_cells=this.spatialPartitionedRDD.getNumPartitions();
-        double avgCard=this.spatialPartitionedRDD.count()/this.spatialPartitionedRDD.getNumPartitions();
-        JavaRDD<Tuple4<Double,Double,Envelope,Double>> mapJavaRDD = this.spatialPartitionedRDD.mapPartitions(new FlatMapFunction<Iterator<T>, Tuple4<Double,Double,Envelope,Double>>() {
+        //double avgCard=this.spatialPartitionedRDD.count()/this.spatialPartitionedRDD.getNumPartitions();
+        long countData=0;
+        JavaRDD<Tuple4<Double,Double,Envelope,Long>> mapJavaRDD = this.spatialPartitionedRDD.mapPartitions(new FlatMapFunction<Iterator<T>, Tuple4<Double,Double,Envelope,Long>>() {
             @Override
-            public Iterator<Tuple4<Double,Double,Envelope,Double>> call(Iterator<T> tIterator) throws Exception {
-                ArrayList<Tuple4<Double,Double,Envelope,Double>> wkbs = new ArrayList<>();
+            public Iterator<Tuple4<Double,Double,Envelope,Long>> call(Iterator<T> tIterator) throws Exception {
+                ArrayList<Tuple4<Double,Double,Envelope,Long>> wkbs = new ArrayList<>();
                 ArrayList<Envelope> partitionENV = new ArrayList<>();
-                int count=0;
+                long count=0;
                 Envelope accENV=new Envelope(0,0,0,0);
                 while(tIterator.hasNext()){
                     Geometry spatialObject = tIterator.next();
@@ -250,23 +262,29 @@ public class SpatialRDD<T extends Geometry>
                     accENV.expandToInclude(spatialObjectMBr);
                     count++;
                 }
-                double partitionLBCalc=Math.pow((double) (count-avgCard),2);// Cardinality per partition minus avgCard
+                //double partitionLBCalc=Math.pow((double) (count-avgCard),2);// Cardinality per partition minus avgCard
                 partitionENV.add(accENV);
                 double envMBRArea=accENV.getArea();
                 double envSemiPerim=(accENV.getHeight()+ accENV.getWidth())/2;
-                wkbs.add(new Tuple4<>(envMBRArea,envSemiPerim,accENV,partitionLBCalc));
+                wkbs.add(new Tuple4<>(envMBRArea,envSemiPerim,accENV,count));
                 return wkbs.iterator();
             }
         });
         for (Tuple4 data:mapJavaRDD.collect()) {
             this.TT_area=this.TT_area+ (double)data._1();
             this.TT_margin=this.TT_margin+ (double)data._2();
-            this.load_balance=this.load_balance+(double)data._4();
+            //this.load_balance=this.load_balance+(double)data._4();
+            countData=countData+(long)data._4();
         }
-        this.load_balance=Math.sqrt((this.load_balance/this.spatialPartitionedRDD.count()));
-        for (int i = 0; i < mapJavaRDD.count(); i++) {
+        double avgCard=countData/this.spatialPartitionedRDD.getNumPartitions();
+
+        for (Tuple4 data:mapJavaRDD.collect()) {
+            this.load_balance=this.load_balance+Math.pow(((long)data._4()-avgCard),2);
+        }
+        this.load_balance=Math.sqrt((this.load_balance/countData));
+        for (int i = 0; i < this.total_cells; i++) {
             double sumareai=0;
-            for (int j = 0; j < mapJavaRDD.count(); j++) {
+            for (int j = 0; j < this.total_cells; j++) {
                 if(i==j){
                     continue;
                 }
@@ -282,6 +300,45 @@ public class SpatialRDD<T extends Geometry>
         System.out.println("TT_margin: "+this.TT_margin);
         System.out.println("total_cells: "+this.total_cells);
 
+    }
+    public void analyzeCombinedStats(JavaRDD<T> rawSpatialSecondDS){
+        final Function2 combOp =
+                new Function2<StatCalculator, StatCalculator, StatCalculator>()
+                {
+                    @Override
+                    public StatCalculator call(StatCalculator agg1, StatCalculator agg2)
+                            throws Exception
+                    {
+                        return StatCalculator.combine(agg1, agg2);
+                    }
+                };
+
+        final Function2 seqOp = new Function2<StatCalculator, Geometry, StatCalculator>()
+        {
+            @Override
+            public StatCalculator call(StatCalculator agg, Geometry object)
+                    throws Exception
+            {
+                return StatCalculator.add(agg, object);
+            }
+        };
+
+        StatCalculator agg = (StatCalculator) rawSpatialSecondDS.aggregate(null, seqOp, combOp);
+        double mbrFirstDS=this.boundaryEnvelope.getArea();
+        Envelope envSecondDS= agg.getBoundary();
+        //get percentage area between two datasets
+        double areaIntersectFirstWSecond=this.boundaryEnvelope.intersection(envSecondDS).getArea();
+        double areaIntersectSecondWFirst=envSecondDS.intersection(this.boundaryEnvelope).getArea();
+        this.overlapMBRFirstDS=areaIntersectFirstWSecond/areaIntersectSecondWFirst;
+        this.overlapMBRSecondDS=areaIntersectSecondWFirst/areaIntersectFirstWSecond;
+        //finding Jaccard Similarity
+        Envelope envUnionOfTwoDS = new Envelope(0,0,0,0);
+        envUnionOfTwoDS.expandToInclude(this.boundaryEnvelope);
+        envUnionOfTwoDS.expandToInclude(envSecondDS);
+        this.jaccardSimilarity=this.boundaryEnvelope.intersection(envSecondDS).getArea()/envUnionOfTwoDS.getArea();
+        System.out.println("Percentage area of first dataset: "+this.overlapMBRFirstDS);
+        System.out.println("Percentager area of Second dataset: "+this.overlapMBRSecondDS);
+        System.out.println("Jaccard Similarity: "+this.jaccardSimilarity);
 
     }
 
