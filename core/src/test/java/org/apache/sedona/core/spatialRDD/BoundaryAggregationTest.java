@@ -66,8 +66,9 @@ public class BoundaryAggregationTest extends SpatialRDDTestBase
         // Create num_polygons polygons which overlap each other
         spatialRDD.rawSpatialRDD = sc.parallelize(createPolygonOverlapping(num_polygons));
         spatialRDD.analyze();
+        spatialRDD.analyze(new double[]{2,3,5,7,9,11});
         spatialRDD.spatialPartitioning(GridType.KDBTREE);
-        spatialRDD.analyzeCombinedStats(spatialRDD.rawSpatialRDD);
+        spatialRDD.analyzeCombinedStats(spatialRDD);
 
         assert spatialRDD.approximateTotalCount == 10;
         assert spatialRDD.avgMBRArea == 2.0;

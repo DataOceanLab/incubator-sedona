@@ -301,31 +301,9 @@ public class SpatialRDD<T extends Geometry>
         System.out.println("total_cells: "+this.total_cells);
 
     }
-    public void analyzeCombinedStats(JavaRDD<T> rawSpatialSecondDS){
-        final Function2 combOp =
-                new Function2<StatCalculator, StatCalculator, StatCalculator>()
-                {
-                    @Override
-                    public StatCalculator call(StatCalculator agg1, StatCalculator agg2)
-                            throws Exception
-                    {
-                        return StatCalculator.combine(agg1, agg2);
-                    }
-                };
-
-        final Function2 seqOp = new Function2<StatCalculator, Geometry, StatCalculator>()
-        {
-            @Override
-            public StatCalculator call(StatCalculator agg, Geometry object)
-                    throws Exception
-            {
-                return StatCalculator.add(agg, object);
-            }
-        };
-
-        StatCalculator agg = (StatCalculator) rawSpatialSecondDS.aggregate(null, seqOp, combOp);
+    public void analyzeCombinedStats(SpatialRDD<T> rawSpatialSecondDS){
         double mbrFirstDS=this.boundaryEnvelope.getArea();
-        Envelope envSecondDS= agg.getBoundary();
+        Envelope envSecondDS= rawSpatialSecondDS.boundaryEnvelope;
         //get percentage area between two datasets
         double areaIntersectFirstWSecond=this.boundaryEnvelope.intersection(envSecondDS).getArea();
         double areaIntersectSecondWFirst=envSecondDS.intersection(this.boundaryEnvelope).getArea();
@@ -445,13 +423,13 @@ public class SpatialRDD<T extends Geometry>
     /**
      * @deprecated Use spatialPartitioning(SpatialPartitioner partitioner)
      */
-    public boolean spatialPartitioning(final List<Envelope> otherGrids)
+    /*public boolean spatialPartitioning(final List<Envelope> otherGrids)
             throws Exception
     {
         this.partitioner = new FlatGridPartitioner(otherGrids);
         this.spatialPartitionedRDD = partition(partitioner);
         return true;
-    }
+    }*/
 
     /**
      * @deprecated Use spatialPartitioning(SpatialPartitioner partitioner)
@@ -649,61 +627,20 @@ public class SpatialRDD<T extends Geometry>
             this.avgLenX=0.0;
             this.avgLenY=0.0;
         }
-        int[] l=new int[]{2,3,5,7,9,11};
-        double sumBC2=0;
-        int i=0;
-        double[][] datapPointsBC0=new double[6][2];
-        double[][] datapPointsBC2=new double[6][2];
 
-        List <Tuple2> bc0Points=new ArrayList<Tuple2>();
-        //JavaPairRDD<Coordinate, Integer> pairs = this.rawSpatialRDD.mapToPair(s -> new Tuple2( new Coordinate(Math.floor(s.getCentroid().getX()/l), Math.floor(s.getCentroid().getY()/l)) , 1));
-        // pairing box counting results
-        for (int len:l) {
-            sumBC2=0;
-            JavaPairRDD<Coordinate, Integer> pairs = this.rawSpatialRDD.mapToPair(s -> new Tuple2( new Tuple2(Math.floor(s.getCentroid().getX()/len), Math.floor(s.getCentroid().getY()/len)) , 1));
-            // getting the final result by reduceBy
-            JavaPairRDD<Coordinate, Integer> countsInEachCell = pairs.reduceByKey((a, b) -> a + b);
-            for (Tuple2 a:countsInEachCell.collect()) {
-                int val= (int) a._2;
-                sumBC2=sumBC2+Math.pow(val,2);// getting the value of BC2 = summation of counts square in each cell.
-            }
-            bc0Points.add(new Tuple2<>(len,sumBC2));
-            datapPointsBC0[i][0]=Math.log(len);
-            datapPointsBC0[i][1]=Math.log(countsInEachCell.count());//storing points in 2D array for regression BC0.
-            datapPointsBC2[i][0]=Math.log(len);
-            datapPointsBC2[i][1]=Math.log(sumBC2);//storing points in 2D array for regression BC2.
-            i++;
-        }
-        /*for (Tuple2 t:bc0Points) {
-            System.out.println(t._1+" :"+t._2);
-        }*/
-        /*for (int j = 0; j < 6; j++) {
-            System.out.println("BC0 points:");
-            System.out.println(datapPointsBC0[j][0]+" "+datapPointsBC0[j][1]);
-            System.out.println("BC2 points:");
-            System.out.println(datapPointsBC2[j][0]+" "+datapPointsBC2[j][1]);
-        }*/
-        SimpleRegression regression = new SimpleRegression();
-        regression.addData(datapPointsBC0);
-        this.E_0=regression.getSlope();
-        System.out.println("E0 Slope: "+ E_0);
-        SimpleRegression regression2 = new SimpleRegression();
-        regression2.addData(datapPointsBC2);
-        this.E_2=regression2.getSlope();
-        System.out.println("E2 Slope: "+ E_2);
-
-        System.out.println("New Method:");
+        return true;
+    }
+    public void analyze(double[] bcLength){
         double sumBC2f=0;
         int iff=0;
         double[][] datapPointsBC0f=new double[6][2];
         double[][] datapPointsBC2f=new double[6][2];
         JavaPairRDD<Tuple3<Double,Double,Double>, Integer> flatmaptopairresult = this.rawSpatialRDD.flatMapToPair(s -> {
             List<Tuple2<String, Integer>> resulttuple=new ArrayList<>();
-            double[] le=new double[]{2,3,5,7,9,11};
+            double[] le=bcLength;//new double[]{2,3,5,7,9,11}
             //Tuple3<Double,Double,Double> res;
             List<Tuple2<Tuple3<Double,Double,Double>, Integer>> resu=new ArrayList<>();
             for (double li:le) {
-                //resulttuple.add(new Tuple2<>(tmp,1));
                 resu.add(new Tuple2<Tuple3<Double,Double,Double>, Integer>(new Tuple3<>(Math.floor(s.getCentroid().getX()/li), Math.floor(s.getCentroid().getY()/li),li),1));
 
             }
@@ -753,17 +690,6 @@ public class SpatialRDD<T extends Geometry>
         this.E_2=reg_E2.getSlope();
         System.out.println("E2 Slope: "+ E_2);
 
-
-
-
-        /*JavaPairRDD<Coordinate, Integer> pairs = this.rawSpatialRDD.mapToPair(s -> new Tuple2( new Tuple2(Math.floor(s.getCentroid().getX()/l), Math.floor(s.getCentroid().getY()/l)) , 1));
-        // getting the final result by reduceBy
-        JavaPairRDD<Coordinate, Integer> countsInEachCell = pairs.reduceByKey((a, b) -> a + b);
-        for (Tuple2 a:countsInEachCell.collect()) {
-            System.out.println( a._1+"  : "+ a._2);
-        }*/
-
-        return true;
     }
 
     public boolean analyze(Envelope datasetBoundary, Integer approximateTotalCount,Double avgMBRArea,Double avgLenX,Double avgLenY)
