@@ -23,7 +23,8 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.util.ArrayData
-import org.apache.spark.sql.types.BooleanType
+import org.apache.spark.sql.types.{BooleanType, DataType}
+import org.locationtech.jts.geom.Geometry
 
 abstract class ST_Predicate extends Expression
 
@@ -108,7 +109,7 @@ case class ST_Within(inputExpressions: Seq[Expression])
   // This is a binary expression
   assert(inputExpressions.length == 2)
 
-  override def toString: String = s" **${ST_Intersects.getClass.getName}**  "
+  override def toString: String = s" **${ST_Within.getClass.getName}**  "
 
   override def children: Seq[Expression] = inputExpressions
 
@@ -120,7 +121,7 @@ case class ST_Within(inputExpressions: Seq[Expression])
 
     val rightGeometry = GeometrySerializer.deserialize(rightArray)
 
-    leftGeometry.coveredBy(rightGeometry)
+    leftGeometry.within(rightGeometry)
   }
 
   override def dataType = BooleanType
@@ -262,6 +263,74 @@ case class ST_Equals(inputExpressions: Seq[Expression])
     val symDifference = leftGeometry.symDifference(rightGeometry)
 
     symDifference.isEmpty
+  }
+
+  override def dataType = BooleanType
+
+  protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]) = {
+    copy(inputExpressions = newChildren)
+  }
+}
+
+/**
+ * Test if leftGeometry is disjoint from rightGeometry
+ *
+ * @param inputExpressions
+ */
+case class ST_Disjoint(inputExpressions: Seq[Expression])
+  extends ST_Predicate with CodegenFallback {
+  override def nullable: Boolean = false
+
+  // This is a binary expression
+  assert(inputExpressions.length == 2)
+
+  override def toString: String = s" **${ST_Disjoint.getClass.getName}**  "
+
+  override def children: Seq[Expression] = inputExpressions
+
+  override def eval(inputRow: InternalRow): Any = {
+    val leftArray = inputExpressions(0).eval(inputRow).asInstanceOf[ArrayData]
+    val rightArray = inputExpressions(1).eval(inputRow).asInstanceOf[ArrayData]
+
+    val leftGeometry = GeometrySerializer.deserialize(leftArray)
+
+    val rightGeometry = GeometrySerializer.deserialize(rightArray)
+
+    leftGeometry.disjoint(rightGeometry)
+  }
+
+  override def dataType = BooleanType
+
+  protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]) = {
+    copy(inputExpressions = newChildren)
+  }
+}
+
+/**
+ * Test if leftGeometry is order equal to rightGeometry
+ *
+ * @param inputExpressions
+ */
+case class ST_OrderingEquals(inputExpressions: Seq[Expression])
+  extends ST_Predicate with CodegenFallback {
+  override def nullable: Boolean = false
+
+  // This is a binary expression
+  assert(inputExpressions.length == 2)
+
+  override def toString: String = s" **${ST_OrderingEquals.getClass.getName}**  "
+
+  override def children: Seq[Expression] = inputExpressions
+
+  override def eval(inputRow: InternalRow): Any = {
+    val leftArray = inputExpressions(0).eval(inputRow).asInstanceOf[ArrayData]
+    val rightArray = inputExpressions(1).eval(inputRow).asInstanceOf[ArrayData]
+
+    val leftGeometry = GeometrySerializer.deserialize(leftArray)
+
+    val rightGeometry = GeometrySerializer.deserialize(rightArray)
+
+    leftGeometry.equalsExact(rightGeometry)
   }
 
   override def dataType = BooleanType

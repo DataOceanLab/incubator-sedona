@@ -16,11 +16,14 @@ package org.apache.sedona.flink.expressions;
 import org.apache.flink.table.annotation.DataTypeHint;
 import org.apache.flink.table.functions.ScalarFunction;
 import org.apache.sedona.core.utils.GeomUtils;
+import org.locationtech.jts.io.WKTWriter;
 import org.apache.spark.sql.sedona_sql.expressions.geohash.GeometryGeoHashEncoder;
 import org.apache.spark.sql.sedona_sql.expressions.geohash.PointGeoHashEncoder;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Coordinate;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
@@ -28,6 +31,8 @@ import org.opengis.referencing.operation.TransformException;
 import scala.Option;
 
 import java.util.Optional;
+
+import static org.locationtech.jts.geom.Coordinate.NULL_ORDINATE;
 
 public class Functions {
     public static class ST_Buffer extends ScalarFunction {
@@ -47,6 +52,33 @@ public class Functions {
             return geom1.distance(geom2);
         }
     }
+
+    public static class ST_YMin extends ScalarFunction {
+        @DataTypeHint("Double")
+        public Double eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o){
+            Geometry geom = (Geometry) o;
+            Coordinate[] points= geom.getCoordinates();
+            double min=Double.MAX_VALUE;
+            for(int i=0;i<points.length;i++){
+                min=Math.min(points[i].getY(),min);
+            }
+            return min;
+        }
+    }
+
+    public static class ST_YMax extends ScalarFunction {
+        @DataTypeHint("Double")
+        public Double eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o){
+            Geometry geom = (Geometry) o;
+            Coordinate[] points= geom.getCoordinates();
+            double max=Double.MIN_VALUE;
+            for(int i=0;i<points.length;i++){
+                max=Math.max(points[i].getY(),max);
+            }
+            return max;
+        }
+    }
+
 
     public static class ST_Transform extends ScalarFunction {
         @DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class)
@@ -99,6 +131,87 @@ public class Functions {
         public Geometry eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o) {
             Geometry geom = (Geometry) o;
             return geom.reverse();
+        }
+    }
+
+    public static class ST_PointN extends ScalarFunction {
+        @DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class)
+        public Geometry eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o, int n) {
+            if(!(o instanceof LineString)) {
+                return null;
+            }
+            LineString lineString = (LineString) o;
+            return GeomUtils.getNthPoint(lineString, n);
+        }
+    }
+
+    public static class ST_ExteriorRing extends ScalarFunction {
+        @DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class)
+        public Geometry eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o) {
+            Geometry geometry = (Geometry) o;
+            return GeomUtils.getExteriorRing(geometry);
+        }
+    }
+
+    public static class ST_AsEWKT extends ScalarFunction {
+        @DataTypeHint("String")
+        public String eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o) {
+            Geometry geom = (Geometry) o;
+            return GeomUtils.getEWKT(geom);
+        }
+    }
+
+    public static class ST_Force_2D extends ScalarFunction {
+        @DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class)
+        public Geometry eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o) {
+            Geometry geom = (Geometry) o;
+            return GeomUtils.get2dGeom(geom);
+        }
+    }
+
+    public static class ST_IsEmpty extends ScalarFunction {
+        @DataTypeHint("Boolean")
+        public boolean eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o) {
+            Geometry geom = (Geometry) o;
+            return geom.isEmpty();
+        }
+    }
+
+    public static class ST_XMax extends ScalarFunction {
+        @DataTypeHint("Double")
+        public Double eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o) {
+            Geometry geom = (Geometry) o;
+            Coordinate[] coord = geom.getCoordinates();
+            double max = Double.MIN_VALUE;
+            for (int i = 0; i < coord.length; i++) {
+                if (coord[i].getX() > max) {
+                    max = coord[i].getX();
+                }
+            }
+            return max;
+        }
+    }
+
+    public static class ST_XMin extends ScalarFunction {
+        @DataTypeHint("Double")
+        public Double eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o) {
+            Geometry geom = (Geometry) o;
+            Coordinate[] coord = geom.getCoordinates();
+            double min = Double.MAX_VALUE;
+            for(int i=0;i< coord.length;i++){
+                if(coord[i].getX()<min){
+                    min = coord[i].getX();
+                }
+            }
+            return min;
+        }
+    }
+
+    public static class ST_BuildArea extends ScalarFunction {
+        @DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class)
+        public Geometry eval(@DataTypeHint(value = "RAW", bridgedTo = org.locationtech.jts.geom.Geometry.class) Object o) {
+            Geometry geom = (Geometry) o;
+            return GeomUtils.buildArea(geom);
         }
     }
 }

@@ -190,5 +190,24 @@ class predicateTestScala extends TestBaseScala {
       assert(overlaps.take(1)(0).get(0) == true)
       assert(notoverlaps.take(1)(0).get(0) == false)
     }
+    it("Passed ST_Disjoint") {
+      var testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON((1 4, 4.5 4, 4.5 2, 1 2, 1 4))') as a,ST_GeomFromWKT('POLYGON((5 4, 6 4, 6 2, 5 2, 5 4))') as b, ST_GeomFromWKT('POLYGON((1 9, 6 6, 6 4, 1 2,1 9))') as c, ST_GeomFromWKT('POLYGON((2 5, 4 5, 4 1, 2 1, 2 5))') as d")
+      testtable.createOrReplaceTempView("testtable")
+      var disjoint = sparkSession.sql("select ST_Disjoint(a,b) from testtable")
+      var notdisjoint = sparkSession.sql("select ST_Disjoint(c,d) from testtable")
+      assert(disjoint.take(1)(0).get(0) == true)
+      assert(notdisjoint.take(1)(0).get(0) == false)
+    }
+
+    it("Passed ST_OrderingEquals") {
+      var testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON((2 0, 0 2, -2 0, 2 0))') as a, ST_GeomFromWKT('POLYGON((2 0, 0 2, -2 0, 2 0))') as b, ST_GeomFromWKT('POLYGON((2 0, 0 2, -2 0, 0 -2, 2 0))') as c, ST_GeomFromWKT('POLYGON((0 2, -2 0, 2 0, 0 2))') as d")
+      testtable.createOrReplaceTempView("testtable")
+      var orderEquals = sparkSession.sql("select ST_OrderingEquals(a,b) from testtable")
+      var notOrderEqualsDiffGeom = sparkSession.sql("select ST_OrderingEquals(a,c) from testtable")
+      var notOrderEqualsDiffOrder = sparkSession.sql("select ST_OrderingEquals(a,d) from testtable")
+      assert(orderEquals.take(1)(0).get(0).asInstanceOf[Boolean])
+      assert(!notOrderEqualsDiffGeom.take(1)(0).get(0).asInstanceOf[Boolean])
+      assert(!notOrderEqualsDiffOrder.take(1)(0).get(0).asInstanceOf[Boolean])
+    }
   }
 }

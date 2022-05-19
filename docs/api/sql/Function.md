@@ -12,6 +12,37 @@ SELECT ST_Distance(polygondf.countyshape, polygondf.countyshape)
 FROM polygondf
 ```
 
+## ST_YMin
+
+Introduction: Return the minimum Y coordinate of A
+
+Format: `ST_Y_Min (A:geometry)`
+
+Since: `v1.2.1`
+
+Spark SQL example:
+```SQL
+SELECT ST_YMin(ST_GeomFromText('POLYGON((0 0 1, 1 1 1, 1 2 1, 1 1 1, 0 0 1))'))
+```
+
+Output : 0
+
+## ST_YMax
+
+Introduction: Return the minimum Y coordinate of A
+
+Format: `ST_YMax (A:geometry)`
+
+Since: `v1.2.1`
+
+Spark SQL example:
+```SQL
+SELECT ST_YMax(ST_GeomFromText('POLYGON((0 0 1, 1 1 1, 1 2 1, 1 1 1, 0 0 1))'))
+```
+
+Output: 2
+
+
 ## ST_3DDistance
 
 Introduction: Return the 3-dimensional minimum cartesian distance between A and B
@@ -160,6 +191,21 @@ SELECT ST_IsValid(polygondf.countyshape)
 FROM polygondf
 ```
 
+## ST_IsEmpty
+
+Introduction: Test if a geometry is empty geometry
+
+Format: `ST_IsEmpty (A:geometry)`
+
+Since: `v1.2.1`
+
+Spark SQL example:
+
+```SQL
+SELECT ST_IsEmpty(polygondf.countyshape)
+FROM polygondf
+```
+
 ## ST_MakeValid
 
 Introduction: Given an invalid geometry, create a valid representation of the geometry.
@@ -299,6 +345,24 @@ Since: `v1.1.1`
 Spark SQL example:
 ```SQL
 SELECT ST_AsEWKB(polygondf.countyshape)
+FROM polygondf
+```
+
+## ST_AsEWKT
+
+Introduction: Return the Extended Well-Known Text representation of a geometry.
+EWKT is an extended version of WKT which includes the SRID of the geometry.
+The format originated in PostGIS but is supported by many GIS tools.
+If the geometry is lacking SRID a WKT format is produced.
+[See ST_SetSRID](#ST_SetSRID)
+
+Format: `ST_AsEWKT (A:geometry)`
+
+Since: `v1.2.1`
+
+Spark SQL example:
+```SQL
+SELECT ST_AsEWKT(polygondf.countyshape)
 FROM polygondf
 ```
 
@@ -1087,4 +1151,119 @@ Result:
 +---------------------------------------------------------------+
 |LINESTRING (3 6, 2 4, 1 2, 0 0)                                |
 +---------------------------------------------------------------+
+```
+
+## ST_PointN
+
+Introduction: Return the Nth point in a single linestring or circular linestring in the geometry. Negative values are counted backwards from the end of the LineString, so that -1 is the last point. Returns NULL if there is no linestring in the geometry.
+
+Format: `ST_PointN(geom: geometry, n: integer)`
+
+Since: `v1.2.1`
+
+Spark SQL example:
+```SQL
+SELECT ST_PointN(ST_GeomFromText("LINESTRING(0 0, 1 2, 2 4, 3 6)"), 2) AS geom
+```
+
+Result:
+
+```
++---------------------------------------------------------------+
+|geom                                                           |
++---------------------------------------------------------------+
+|POINT (1 2)                                                    |
++---------------------------------------------------------------+
+```
+
+Result:
+=======
+## ST_Force_2D
+
+Introduction: Forces the geometries into a "2-dimensional mode" so that all output representations will only have the X and Y coordinates
+
+Format: `ST_Force_2D (A:geometry)`
+
+Since: `v1.2.1`
+
+Example:
+
+```SQL
+SELECT ST_AsText(
+    ST_Force_2D(ST_GeomFromText('POLYGON((0 0 2,0 5 2,5 0 2,0 0 2),(1 1 2,3 1 2,1 3 2,1 1 2))'))
+) AS geom
+```
+
+Result:
+
+```
++---------------------------------------------------------------+
+|geom                                                           |
++---------------------------------------------------------------+
+|POLYGON((0 0,0 5,5 0,0 0),(1 1,3 1,1 3,1 1))                   |
++---------------------------------------------------------------+
+```
+
+## ST_XMax
+
+Introduction: Returns the maximum X coordinate of a geometry
+
+Format: `ST_XMax (A:geometry)`
+
+Since: `v1.2.1`
+
+Example:
+
+```SQL
+SELECT ST_XMax(df.geometry) AS xmax
+FROM df
+```
+
+Input: `POLYGON ((-1 -11, 0 10, 1 11, 2 12, -1 -11))`
+
+Output: `2`
+
+## ST_XMin
+
+Introduction: Returns the minimum X coordinate of a geometry
+
+Format: `ST_XMin (A:geometry)`
+
+Since: `v1.2.1`
+
+Example:
+
+```SQL
+SELECT ST_XMin(df.geometry) AS xmin
+FROM df
+```
+
+Input: `POLYGON ((-1 -11, 0 10, 1 11, 2 12, -1 -11))`
+
+Output: `-1`
+
+## ST_BuildArea
+
+Introduction: Returns the areal geometry formed by the constituent linework of the input geometry.
+
+Format: `ST_BuildArea (A:geometry)`
+
+Since: `v1.2.1`
+
+Example:
+
+```SQL
+SELECT ST_BuildArea(
+    ST_GeomFromText('MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0),(2 2, 18 2, 18 18, 2 18, 2 2))')
+) AS geom
+```
+
+Result:
+
+```
++----------------------------------------------------------------------------+
+|geom                                                                        |
++----------------------------------------------------------------------------+
+|POLYGON((0 0,0 20,20 20,20 0,0 0),(2 2,18 2,18 18,2 18,2 2))                |
++----------------------------------------------------------------------------+
 ```

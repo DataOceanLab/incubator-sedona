@@ -26,20 +26,33 @@ public class Catalog {
                 new Constructors.ST_GeomFromWKT(),
                 new Constructors.ST_GeomFromWKB(),
                 new Constructors.ST_GeomFromGeoJSON(),
+                new Constructors.ST_GeomFromGeoHash(),
                 new Functions.ST_Buffer(),
                 new Functions.ST_Distance(),
                 new Functions.ST_Transform(),
                 new Functions.ST_FlipCoordinates(),
                 new Functions.ST_GeoHash(),
                 new Functions.ST_PointOnSurface(),
-                new Functions.ST_Reverse()
+                new Functions.ST_Reverse(),
+                new Functions.ST_PointN(),
+                new Functions.ST_ExteriorRing(),
+                new Functions.ST_AsEWKT(),
+                new Functions.ST_Force_2D(),
+                new Functions.ST_IsEmpty(),
+                new Functions.ST_YMax(),
+                new Functions.ST_YMin(),
+                new Functions.ST_XMax(),
+                new Functions.ST_XMin(),
+                new Functions.ST_BuildArea()
         };
     }
 
     public static UserDefinedFunction[] getPredicates() {
         return new UserDefinedFunction[]{
                 new Predicates.ST_Intersects(),
-                new Predicates.ST_Contains()
+                new Predicates.ST_Contains(),
+                new Predicates.ST_Disjoint(),
+                new Predicates.ST_OrderingEquals(),
         };
     }
 }

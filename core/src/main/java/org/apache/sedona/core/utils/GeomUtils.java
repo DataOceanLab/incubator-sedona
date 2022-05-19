@@ -13,11 +13,19 @@
  */
 package org.apache.sedona.core.utils;
 
+import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.impl.CoordinateArraySequence;
+
 import org.locationtech.jts.geom.CoordinateSequence;
 import org.locationtech.jts.geom.CoordinateSequenceFilter;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.WKTWriter;
+import org.locationtech.jts.operation.polygonize.Polygonizer;
+import org.locationtech.jts.operation.union.UnaryUnionOp;
 
-import java.util.Objects;
+import java.util.*;
+
+import static org.locationtech.jts.geom.Coordinate.NULL_ORDINATE;
 
 public class GeomUtils
 {
@@ -79,5 +87,136 @@ public class GeomUtils
             return null;
         }
         return geometry.getInteriorPoint();
+    }
+
+    /**
+     * Return the nth point from the given geometry (which could be a linestring or a circular linestring)
+     * If the value of n is negative, return a point backwards
+     * E.g. if n = 1, return 1st point, if n = -1, return last point
+     *
+     * @param lineString from which the nth point is to be returned
+     * @param n is the position of the point in the geometry
+     * @return a point
+     */
+    public static Geometry getNthPoint(LineString lineString, int n) {
+        if (lineString == null || n == 0) {
+            return null;
+        }
+
+        int p = lineString.getNumPoints();
+        if (Math.abs(n) > p) {
+            return null;
+        }
+
+        Coordinate[] nthCoordinate = new Coordinate[1];
+        if (n > 0) {
+            nthCoordinate[0] = lineString.getCoordinates()[n - 1];
+        } else {
+            nthCoordinate[0] = lineString.getCoordinates()[p + n];
+        }
+        return new Point(new CoordinateArraySequence(nthCoordinate), lineString.getFactory());
+    }
+
+    public static Geometry getExteriorRing(Geometry geometry) {
+        try {
+            Polygon polygon = (Polygon) geometry;
+            return polygon.getExteriorRing();
+        } catch(ClassCastException e) {
+            return null;
+        }
+    }
+
+    public static String getEWKT(Geometry geometry) {
+        if(geometry==null) {
+            return null;
+        }
+
+        int srid = geometry.getSRID();
+        String sridString = "";
+        if (srid != 0) {
+            sridString = "SRID=" + String.valueOf(srid) + ";";
+        }
+
+        return sridString + new WKTWriter().write(geometry);
+    }
+
+    public static Geometry get2dGeom(Geometry geom) {
+        Coordinate[] coordinates = geom.getCoordinates();
+        GeometryFactory geometryFactory = new GeometryFactory();
+        CoordinateSequence sequence = geometryFactory.getCoordinateSequenceFactory().create(coordinates);
+        if(sequence.getDimension() > 2) {
+            for (int i = 0; i < coordinates.length; i++) {
+                sequence.setOrdinate(i, 2, NULL_ORDINATE);
+            }
+            if(sequence.getDimension() == 4) {
+                for (int i = 0; i < coordinates.length; i++) {
+                    sequence.setOrdinate(i, 3, NULL_ORDINATE);
+                }
+            }
+        }
+        geom.geometryChanged();
+        return geom;
+    }
+
+    public static Geometry buildArea(Geometry geom) {
+        if (geom == null || geom.isEmpty()) {
+            return geom;
+        }
+        Polygonizer polygonizer = new Polygonizer();
+        polygonizer.add(geom);
+        List<Polygon> polygons = (List<Polygon>) polygonizer.getPolygons();
+        if (polygons.isEmpty()) {
+            return null;
+        } else if (polygons.size() == 1) {
+            return polygons.get(0);
+        }
+        int srid = geom.getSRID();
+        Map<Polygon, Polygon> parentMap = findFaceHoles(polygons);
+        List<Polygon> facesWithEvenAncestors = new ArrayList<>();
+        for (Polygon face : polygons) {
+            face.normalize();
+            if (countParents(parentMap, face) % 2 == 0) {
+                facesWithEvenAncestors.add(face);
+            }
+        }
+        UnaryUnionOp unaryUnionOp = new UnaryUnionOp(facesWithEvenAncestors);
+        Geometry outputGeom = unaryUnionOp.union();
+        if (outputGeom != null) {
+            outputGeom.normalize();
+            outputGeom.setSRID(srid);
+        }
+        return outputGeom;
+    }
+
+    private static Map<Polygon, Polygon> findFaceHoles(List<Polygon> faces) {
+        Map<Polygon, Polygon> parentMap = new HashMap<>();
+        faces.sort(Comparator.comparing((Polygon p) -> p.getEnvelope().getArea()).reversed());
+        for (int i = 0; i < faces.size(); i++) {
+            Polygon face = faces.get(i);
+            int nHoles = face.getNumInteriorRing();
+            for (int h = 0; h < nHoles; h++) {
+                Geometry hole = face.getInteriorRingN(h);
+                for (int j = i + 1; j < faces.size(); j++) {
+                    Polygon face2 = faces.get(j);
+                    if (parentMap.containsKey(face2)) {
+                        continue;
+                    }
+                    Geometry face2ExteriorRing = face2.getExteriorRing();
+                    if (face2ExteriorRing.equals(hole)) {
+                        parentMap.put(face2, face);
+                    }
+                }
+            }
+        }
+        return parentMap;
+    }
+
+    private static int countParents(Map<Polygon, Polygon> parentMap, Polygon face) {
+        int pCount = 0;
+        while (parentMap.containsKey(face)) {
+            pCount++;
+            face = parentMap.get(face);
+        }
+        return pCount;
     }
 }

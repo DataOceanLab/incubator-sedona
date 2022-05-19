@@ -14,16 +14,23 @@
 package org.apache.sedona.flink;
 
 import org.apache.flink.table.api.Table;
+import org.apache.sedona.flink.expressions.Constructors;
 import org.apache.sedona.flink.expressions.Functions;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static org.apache.flink.table.api.Expressions.$;
 import static org.apache.flink.table.api.Expressions.call;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class FunctionTest extends TestBase{
     @BeforeClass
@@ -57,6 +64,25 @@ public class FunctionTest extends TestBase{
     }
 
     @Test
+    public void testYMax() {
+        Table polygonTable = createPolygonTable(1);
+        Table ResultTable = polygonTable.select(call(Functions.ST_YMax.class.getSimpleName(), $(polygonColNames[0])));
+        assert(first(ResultTable).getField(0)!=null);
+        double result = (double) first(ResultTable).getField(0);
+        assertEquals(0.5, result,0);
+    }
+
+    @Test
+    public void testYMin() {
+        Table polygonTable = createPolygonTable(1);
+        Table ResultTable = polygonTable.select(call(Functions.ST_YMin.class.getSimpleName(), $(polygonColNames[0])));
+        assert(first(ResultTable).getField(0)!=null);
+        double result = (double) first(ResultTable).getField(0);
+        assertEquals(-0.5, result, 0);
+    }
+
+
+    @Test
     public void testGeomToGeoHash() {
         Table pointTable = createPointTable(testDataSize);
         pointTable = pointTable.select(
@@ -73,10 +99,90 @@ public class FunctionTest extends TestBase{
         assertEquals("POINT (32 -118)", result.toString());
     }
 
+    @Test
     public void testReverse() {
         Table polygonTable = createPolygonTable(1);
         Table ReversedTable = polygonTable.select(call(Functions.ST_Reverse.class.getSimpleName(), $(polygonColNames[0])));
         Geometry result = (Geometry) first(ReversedTable).getField(0);
         assertEquals("POLYGON ((-0.5 -0.5, 0.5 -0.5, 0.5 0.5, -0.5 0.5, -0.5 -0.5))", result.toString());
     }
+
+    @Test
+    public void testPointN_positiveN() {
+        int n = 1;
+        Table polygonTable = createPolygonTable(1);
+        Table linestringTable = polygonTable.select(call(Functions.ST_ExteriorRing.class.getSimpleName(), $(polygonColNames[0])));
+        Table pointTable = linestringTable.select(call(Functions.ST_PointN.class.getSimpleName(), $("_c0"), n));
+        Point point = (Point) first(pointTable).getField(0);
+        assert point != null;
+        Assert.assertEquals("POINT (-0.5 -0.5)", point.toString());
+    }
+
+    @Test
+    public void testPointN_negativeN() {
+        int n = -3;
+        Table polygonTable = createPolygonTable(1);
+        Table linestringTable = polygonTable.select(call(Functions.ST_ExteriorRing.class.getSimpleName(), $(polygonColNames[0])));
+        Table pointTable = linestringTable.select(call(Functions.ST_PointN.class.getSimpleName(), $("_c0"), n));
+        Point point = (Point) first(pointTable).getField(0);
+        assert point != null;
+        Assert.assertEquals("POINT (0.5 0.5)", point.toString());
+    }
+
+    @Test
+    public void testExteriorRing() {
+        Table polygonTable = createPolygonTable(1);
+        Table linearRingTable = polygonTable.select(call(Functions.ST_ExteriorRing.class.getSimpleName(), $(polygonColNames[0])));
+        LinearRing linearRing = (LinearRing) first(linearRingTable).getField(0);
+        assert linearRing != null;
+        Assert.assertEquals("LINEARRING (-0.5 -0.5, -0.5 0.5, 0.5 0.5, 0.5 -0.5, -0.5 -0.5)", linearRing.toString());
+    }
+
+    public void testAsEWKT() {
+        Table polygonTable = createPolygonTable(testDataSize);
+        polygonTable = polygonTable.select(call(Functions.ST_AsEWKT.class.getSimpleName(), $(polygonColNames[0])));
+        String result = (String) first(polygonTable).getField(0);
+        assertEquals("POLYGON ((-0.5 -0.5, -0.5 0.5, 0.5 0.5, 0.5 -0.5, -0.5 -0.5))", result);
+    }
+
+    @Test
+    public void testForce2D() {
+        Table polygonTable = createPolygonTable(1);
+        Table Forced2DTable = polygonTable.select(call(Functions.ST_Force_2D.class.getSimpleName(), $(polygonColNames[0])));
+        Geometry result = (Geometry) first(Forced2DTable).getField(0);
+        assertEquals("POLYGON ((-0.5 -0.5, -0.5 0.5, 0.5 0.5, 0.5 -0.5, -0.5 -0.5))", result.toString());
+    }
+
+    @Test
+    public void testIsEmpty() {
+        Table polygonTable = createPolygonTable(testDataSize);
+        polygonTable = polygonTable.select(call(Functions.ST_IsEmpty.class.getSimpleName(), $(polygonColNames[0])));
+        boolean result = (boolean) first(polygonTable).getField(0);
+        assertEquals(false, result);
+    }
+
+    @Test
+    public void testXMax() {
+        Table polygonTable = createPolygonTable(1);
+        Table MaxTable = polygonTable.select(call(Functions.ST_XMax.class.getSimpleName(), $(polygonColNames[0])));
+        double result = (double) first(MaxTable).getField(0);
+        assertEquals(0.5, result,0);
+    }
+
+    @Test
+    public void testXMin() {
+        Table polygonTable = createPolygonTable(1);
+        Table MinTable = polygonTable.select(call(Functions.ST_XMin.class.getSimpleName(), $(polygonColNames[0])));
+        double result = (double) first(MinTable).getField(0);
+        assertEquals(-0.5, result,0);
+    }
+
+    @Test
+    public void testBuildArea() {
+        Table polygonTable = createPolygonTable(1);
+        Table arealGeomTable = polygonTable.select(call(Functions.ST_BuildArea.class.getSimpleName(), $(polygonColNames[0])));
+        Geometry result = (Geometry) first(arealGeomTable).getField(0);
+        assertEquals("POLYGON ((-0.5 -0.5, -0.5 0.5, 0.5 0.5, 0.5 -0.5, -0.5 -0.5))", result.toString());
+    }
 }
+

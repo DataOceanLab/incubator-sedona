@@ -16,20 +16,18 @@
 #  under the License.
 
 import math
-from typing import List
-
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col
 from pyspark.sql.functions import explode, expr
 from pyspark.sql.types import StructType, StructField, IntegerType
+from sedona.sql.types import GeometryType
 from shapely import wkt
 from shapely.wkt import loads
-
-from sedona.sql.types import GeometryType
 from tests import mixed_wkt_geometry_input_location
 from tests.sql.resource.sample_data import create_sample_points, create_simple_polygons_df, \
     create_sample_points_df, create_sample_polygons_df, create_sample_lines_df
 from tests.test_base import TestBase
+from typing import List
 
 
 class TestPredicateJoin(TestBase):
@@ -944,7 +942,7 @@ class TestPredicateJoin(TestBase):
         "'POLYGON((0 0, 0 5, 5 5, 5 0, 0 0))'":"POINT (2.5 2.5)",
         "'LINESTRING(0 5 1, 0 0 1, 0 10 2)'":"POINT Z(0 0 1)"
         }
-                
+
         for input_geom, expected_geom in tests1.items():
             pointOnSurface = self.spark.sql("select ST_AsText(ST_PointOnSurface(ST_GeomFromText({})))".format(input_geom))
             assert pointOnSurface.take(1)[0][0] == expected_geom
@@ -957,3 +955,65 @@ class TestPredicateJoin(TestBase):
             pointOnSurface = self.spark.sql("select ST_AsEWKT(ST_PointOnSurface(ST_GeomFromEWKT({})))".format(input_geom))
             assert pointOnSurface.take(1)[0][0] == expected_geom
         '''
+
+    def test_st_pointn(self):
+        linestring = "'LINESTRING(0 0, 1 2, 2 4, 3 6)'"
+        tests = [
+            [linestring, 1, "POINT (0 0)"],
+            [linestring, 2, "POINT (1 2)"],
+            [linestring, -1, "POINT (3 6)"],
+            [linestring, -2, "POINT (2 4)"],
+            [linestring, 3, "POINT (2 4)"],
+            [linestring, 4, "POINT (3 6)"],
+            [linestring, 5, None],
+            [linestring, -5, None],
+            ["'POLYGON((1 1, 3 1, 3 3, 1 3, 1 1))'", 2, None],
+            ["'POINT(1 2)'", 1, None]
+        ]
+
+        for test in tests:
+            point = self.spark.sql(f"select ST_AsText(ST_PointN(ST_GeomFromText({test[0]}), {test[1]}))")
+            assert point.take(1)[0][0] == test[2]
+
+    def test_st_force2d(self):
+        tests1 = {
+            "'POINT(0 5)'": "POINT (0 5)",
+            "'POLYGON((0 0 2, 0 5 2, 5 0 2, 0 0 2), (1 1 2, 3 1 2, 1 3 2, 1 1 2))'":
+                "POLYGON ((0 0, 0 5, 5 0, 0 0), (1 1, 3 1, 1 3, 1 1))",
+            "'LINESTRING(0 5 1, 0 0 1, 0 10 2)'": "LINESTRING (0 5, 0 0, 0 10)"
+        }
+
+        for input_geom, expected_geom in tests1.items():
+            geom_2d = self.spark.sql(
+                "select ST_AsText(ST_Force_2D(ST_GeomFromText({})))".format(input_geom))
+            assert geom_2d.take(1)[0][0] == expected_geom
+
+    def test_st_buildarea(self):
+        tests = {
+            "'MULTILINESTRING((0 0, 10 0, 10 10, 0 10, 0 0),(10 10, 20 10, 20 20, 10 20, 10 10))'":
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0)), ((10 10, 10 20, 20 20, 20 10, 10 10)))",
+            "'MULTILINESTRING((0 0, 10 0, 10 10, 0 10, 0 0),(10 10, 20 10, 20 0, 10 0, 10 10))'":
+                "POLYGON ((0 0, 0 10, 10 10, 20 10, 20 0, 10 0, 0 0))",
+            "'MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0),(2 2, 18 2, 18 18, 2 18, 2 2))'":
+                "POLYGON ((0 0, 0 20, 20 20, 20 0, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2))",
+            "'MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2), (8 8, 8 12, 12 12, 12 8, 8 8))'":
+                "MULTIPOLYGON (((0 0, 0 20, 20 20, 20 0, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2)), ((8 8, 8 12, 12 12, 12 8, 8 8)))",
+            "'MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0),(2 2, 18 2, 18 18, 2 18, 2 2), " \
+            "(8 8, 8 9, 8 10, 8 11, 8 12, 9 12, 10 12, 11 12, 12 12, 12 11, 12 10, 12 9, 12 8, 11 8, 10 8, 9 8, 8 8))'":
+                "MULTIPOLYGON (((0 0, 0 20, 20 20, 20 0, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2)), " \
+                "((8 8, 8 9, 8 10, 8 11, 8 12, 9 12, 10 12, 11 12, 12 12, 12 11, 12 10, 12 9, 12 8, 11 8, 10 8, 9 8, 8 8)))",
+            "'MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0),(2 2, 18 2, 18 18, 2 18, 2 2),(8 8, 8 12, 12 12, 12 8, 8 8),(10 8, 10 12))'":
+                "MULTIPOLYGON (((0 0, 0 20, 20 20, 20 0, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2)), ((8 8, 8 12, 12 12, 12 8, 8 8)))",
+            "'MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0),(2 2, 18 2, 18 18, 2 18, 2 2),(10 2, 10 18))'":
+                "POLYGON ((0 0, 0 20, 20 20, 20 0, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2))",
+            "'MULTILINESTRING( (0 0, 70 0, 70 70, 0 70, 0 0), (10 10, 10 60, 40 60, 40 10, 10 10), " \
+            "(20 20, 20 30, 30 30, 30 20, 20 20), (20 30, 30 30, 30 50, 20 50, 20 30), (50 20, 60 20, 60 40, 50 40, 50 20), " \
+            "(50 40, 60 40, 60 60, 50 60, 50 40), (80 0, 110 0, 110 70, 80 70, 80 0), (90 60, 100 60, 100 50, 90 50, 90 60))'":
+                "MULTIPOLYGON (((0 0, 0 70, 70 70, 70 0, 0 0), (10 10, 40 10, 40 60, 10 60, 10 10), (50 20, 60 20, 60 40, 60 60, 50 60, 50 40, 50 20)), " \
+                "((20 20, 20 30, 20 50, 30 50, 30 30, 30 20, 20 20)), " \
+                "((80 0, 80 70, 110 70, 110 0, 80 0), (90 50, 100 50, 100 60, 90 60, 90 50)))"
+        }
+
+        for input_geom, expected_geom in tests.items():
+            areal_geom = self.spark.sql("select ST_AsText(ST_BuildArea(ST_GeomFromText({})))".format(input_geom))
+            assert areal_geom.take(1)[0][0] == expected_geom

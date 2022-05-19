@@ -65,6 +65,16 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
       assert(functionDf.count() > 0);
     }
 
+    it("Passed ST_YMax") {
+      var test = sparkSession.sql("SELECT ST_YMax(ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))'))")
+      assert(test.take(1)(0).get(0).asInstanceOf[Double] == 3.0)
+    }
+
+    it("Passed ST_YMin") {
+      var test = sparkSession.sql("SELECT ST_YMin(ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))'))")
+      assert(test.take(1)(0).get(0).asInstanceOf[Double] == -3.0)
+    }
+
     it("Passed ST_Centroid") {
       var polygonWktDf = sparkSession.read.format("csv").option("delimiter", "\t").option("header", "false").load(mixedWktGeometryInputLocation)
       polygonWktDf.createOrReplaceTempView("polygontable")
@@ -1286,7 +1296,7 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
     }
 
     /* ST_AsEWKT Has not been implemented yet
-    
+
     val geomTestCases2 = Map(
       "'LINESTRING(0 5 1, 0 0 1, 0 10 2)'"
         -> "POINT (0 0 1)"
@@ -1333,6 +1343,117 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
       var df = sparkSession.sql(s"select ST_AsText(ST_Reverse(ST_GeomFromText($inputGeom)))")
       var result = df.collect()
       assert(result.head.get(0).asInstanceOf[String]==expectedGeom)
+    }
+  }
+
+  it("Should pass ST_PointN") {
+
+    Given("Some different types of geometries in a DF")
+
+    val sampleLineString = "LINESTRING(0 0, 1 2, 2 4, 3 6)"
+    val testData = Seq(
+      (sampleLineString, 1),
+      (sampleLineString, 2),
+      (sampleLineString, -1),
+      (sampleLineString, -2),
+      (sampleLineString, 3),
+      (sampleLineString, 4),
+      (sampleLineString, 5),
+      (sampleLineString, -5),
+      ("POLYGON((-1 0 0, 1 0 0, 0 0 1, 0 1 0, -1 0 0))", 2),
+      ("POINT(1 2)", 1)
+    ).toDF("Geometry", "N")
+
+    When("Using ST_PointN for getting the nth point in linestring type of Geometries")
+
+    val testDF = testData.selectExpr("ST_PointN(ST_GeomFromText(Geometry), N) as geom")
+
+    Then("Result should match the list of nth points")
+
+    testDF.selectExpr("ST_AsText(geom)")
+      .as[String].collect() should contain theSameElementsAs
+      List(
+        "POINT (0 0)", "POINT (1 2)", "POINT (3 6)",
+        "POINT (2 4)", "POINT (2 4)", "POINT (3 6)",
+        null, null, null, null
+      )
+  }
+
+  it ("Should pass ST_AsEWKT") {
+    var df = sparkSession.sql("SELECT ST_SetSrid(ST_GeomFromWKT('POLYGON((0 0,0 1,1 1,1 0,0 0))'), 4326) as point")
+    df.createOrReplaceTempView("table")
+    df = sparkSession.sql("SELECT ST_AsEWKT(point) from table")
+    val s = "SRID=4326;POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))"
+    assert(df.first().get(0).asInstanceOf[String] == s)
+  }
+
+  it ("Should pass ST_Force_2D") {
+    val geomTestCases1 = Map(
+      "'POINT(0 5)'"
+        -> "POINT (0 5)",
+      "'POLYGON((0 0 2, 0 5 2, 5 0 2, 0 0 2), (1 1 2, 3 1 2, 1 3 2, 1 1 2))'"
+        -> "POLYGON ((0 0, 0 5, 5 0, 0 0), (1 1, 3 1, 1 3, 1 1))",
+      "'LINESTRING(0 5 1, 0 0 1, 0 10 2)'"
+        -> "LINESTRING (0 5, 0 0, 0 10)"
+    )
+
+    for ((inputGeom, expectedGeom) <- geomTestCases1) {
+      var df = sparkSession.sql(s"select ST_AsText(ST_Force_2D(ST_GeomFromText($inputGeom)))")
+      var result = df.collect()
+      assert(result.head.get(0).asInstanceOf[String] == expectedGeom)
+    }
+  }
+
+  it ("Should pass ST_IsEmpty") {
+    var df = sparkSession.sql("SELECT ST_SetSrid(ST_GeomFromWKT('POLYGON((0 0,0 1,1 1,1 0,0 0))'), 4326) as point")
+    df.createOrReplaceTempView("table")
+    df = sparkSession.sql("SELECT ST_IsEmpty(point) from table")
+    val s = false
+    assert(df.first().get(0).asInstanceOf[Boolean] == s)
+  }
+
+  it("Passed ST_XMax") {
+    var test = sparkSession.sql("SELECT ST_XMax(ST_GeomFromWKT('POLYGON ((-1 -11, 0 10, 1 11, 2 12, -1 -11))'))")
+    assert(test.take(1)(0).get(0).asInstanceOf[Double] == 2.0)
+
+  }
+
+  it("Passed ST_XMin") {
+    var test = sparkSession.sql("SELECT ST_XMin(ST_GeomFromWKT('POLYGON ((-1 -11, 0 10, 1 11, 2 12, -1 -11))'))")
+    assert(test.take(1)(0).get(0).asInstanceOf[Double] == -1.0)
+
+  }
+
+  it ("Should pass ST_BuildArea") {
+    val geomTestCases = Map(
+      "'MULTILINESTRING((0 0, 10 0, 10 10, 0 10, 0 0),(10 10, 20 10, 20 20, 10 20, 10 10))'"
+        -> "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0)), ((10 10, 10 20, 20 20, 20 10, 10 10)))",
+      "'MULTILINESTRING((0 0, 10 0, 10 10, 0 10, 0 0),(10 10, 20 10, 20 0, 10 0, 10 10))'"
+        -> "POLYGON ((0 0, 0 10, 10 10, 20 10, 20 0, 10 0, 0 0))",
+      "'MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0),(2 2, 18 2, 18 18, 2 18, 2 2))'"
+        -> "POLYGON ((0 0, 0 20, 20 20, 20 0, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2))",
+      "'MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2), (8 8, 8 12, 12 12, 12 8, 8 8))'"
+        -> "MULTIPOLYGON (((0 0, 0 20, 20 20, 20 0, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2)), ((8 8, 8 12, 12 12, 12 8, 8 8)))",
+      """'MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0),(2 2, 18 2, 18 18, 2 18, 2 2),
+        |(8 8, 8 9, 8 10, 8 11, 8 12, 9 12, 10 12, 11 12, 12 12, 12 11, 12 10, 12 9, 12 8, 11 8, 10 8, 9 8, 8 8))'""".stripMargin.replaceAll("\n", " ")
+        -> """MULTIPOLYGON (((0 0, 0 20, 20 20, 20 0, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2)),
+             |((8 8, 8 9, 8 10, 8 11, 8 12, 9 12, 10 12, 11 12, 12 12, 12 11, 12 10, 12 9, 12 8, 11 8, 10 8, 9 8, 8 8)))""".stripMargin.replaceAll("\n", " "),
+      "'MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0),(2 2, 18 2, 18 18, 2 18, 2 2),(8 8, 8 12, 12 12, 12 8, 8 8),(10 8, 10 12))'"
+        -> "MULTIPOLYGON (((0 0, 0 20, 20 20, 20 0, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2)), ((8 8, 8 12, 12 12, 12 8, 8 8)))",
+      "'MULTILINESTRING((0 0, 20 0, 20 20, 0 20, 0 0),(2 2, 18 2, 18 18, 2 18, 2 2),(10 2, 10 18))'"
+        -> "POLYGON ((0 0, 0 20, 20 20, 20 0, 0 0), (2 2, 18 2, 18 18, 2 18, 2 2))",
+      """'MULTILINESTRING( (0 0, 70 0, 70 70, 0 70, 0 0), (10 10, 10 60, 40 60, 40 10, 10 10),
+        |(20 20, 20 30, 30 30, 30 20, 20 20), (20 30, 30 30, 30 50, 20 50, 20 30), (50 20, 60 20, 60 40, 50 40, 50 20),
+        |(50 40, 60 40, 60 60, 50 60, 50 40), (80 0, 110 0, 110 70, 80 70, 80 0), (90 60, 100 60, 100 50, 90 50, 90 60))'""".stripMargin.replaceAll("\n", " ")
+        -> """MULTIPOLYGON (((0 0, 0 70, 70 70, 70 0, 0 0), (10 10, 40 10, 40 60, 10 60, 10 10), (50 20, 60 20, 60 40, 60 60, 50 60, 50 40, 50 20)),
+          |((20 20, 20 30, 20 50, 30 50, 30 30, 30 20, 20 20)),
+          |((80 0, 80 70, 110 70, 110 0, 80 0), (90 50, 100 50, 100 60, 90 60, 90 50)))""".stripMargin.replaceAll("\n", " ")
+    )
+
+    for ((inputGeom, expectedGeom) <- geomTestCases) {
+      val df = sparkSession.sql(s"select ST_AsText(ST_BuildArea(ST_GeomFromText($inputGeom)))")
+      val result = df.collect()
+      assert(result.head.get(0).asInstanceOf[String] == expectedGeom)
     }
   }
 
@@ -1445,6 +1566,12 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
     functionDf = sparkSession.sql("select ST_PointOnSurface(null)")
     assert(functionDf.first().get(0) == null)
     functionDf = sparkSession.sql("select ST_Reverse(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_AsEWKT(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Force_2D(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_BuildArea(null)")
     assert(functionDf.first().get(0) == null)
   }
 }
