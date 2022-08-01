@@ -50,6 +50,11 @@ public class QuadTreePartitioner
     {
         return quadTree.placeObject(spatialObject);
     }
+    public Iterator<Tuple2<Integer, Geometry>> placeObjectN(Geometry spatialObject)
+            throws Exception
+    {
+        return quadTree.placeObject(spatialObject);
+    }
 
     @Nullable
     @Override

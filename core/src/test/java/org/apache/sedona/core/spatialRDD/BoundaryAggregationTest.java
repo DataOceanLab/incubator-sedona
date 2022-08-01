@@ -30,6 +30,9 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
+import scala.Tuple2;
+
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 
@@ -69,6 +72,8 @@ public class BoundaryAggregationTest extends SpatialRDDTestBase
         spatialRDD.analyze(new double[]{2,3,5,7,9,11});
         spatialRDD.spatialPartitioning(GridType.KDBTREE);
         spatialRDD.analyzeCombinedStats(spatialRDD);
+        List<Geometry> ls=spatialRDD.spatialPartitionedRDD.collect();
+        System.out.println(ls);
 
         assert spatialRDD.approximateTotalCount == 10;
         assert spatialRDD.avgMBRArea == 2.0;

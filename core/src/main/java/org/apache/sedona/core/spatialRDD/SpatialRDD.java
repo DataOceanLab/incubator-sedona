@@ -50,11 +50,11 @@ import org.opengis.referencing.operation.MathTransform;
 import org.wololo.geojson.Feature;
 import org.wololo.jts2geojson.GeoJSONWriter;
 import scala.*;
-import visad.Tuple;
 
 import java.io.Serializable;
 import java.lang.Double;
 import java.lang.Long;
+import java.lang.Short;
 import java.util.*;
 
 // TODO: Auto-generated Javadoc
@@ -78,19 +78,19 @@ public class SpatialRDD<T extends Geometry>
     /**
      * The average mbrArea of the records.
      */
-    public double avgMBRArea = -1;
+    public double avgMBRArea = -1.00;
     /**
      * The average lenX of the records.
      */
-    public double avgLenX = -1;
+    public double avgLenX = -1.00;
     /**
      * The average lenY  of the records.
      */
-    public double avgLenY = -1;
+    public double avgLenY = -1.00;
     /**
      * The total area after spatial partitioning.
      */
-    public double TT_area = 0;
+    public double TT_area = 0.00;
     /**
      * The Total cell or partitions after spatial partitioning.
      */
@@ -294,29 +294,29 @@ public class SpatialRDD<T extends Geometry>
             }
             this.TT_overlap=this.TT_overlap+sumareai;
         }
-        System.out.println("Overlap: "+this.TT_overlap);
-        System.out.println("Load Balance:"+ this.load_balance);
-        System.out.println("TT_area: "+this.TT_area);
-        System.out.println("TT_margin: "+this.TT_margin);
-        System.out.println("total_cells: "+this.total_cells);
+//        System.out.println("Overlap: "+this.TT_overlap);
+//        System.out.println("Load Balance:"+ this.load_balance);
+//        System.out.println("TT_area: "+this.TT_area);
+//        System.out.println("TT_margin: "+this.TT_margin);
+//        System.out.println("total_cells: "+this.total_cells);
 
     }
-    public void analyzeCombinedStats(SpatialRDD<T> rawSpatialSecondDS){
+    public void analyzeCombinedStats(SpatialRDD rawSpatialSecondDS){
         double mbrFirstDS=this.boundaryEnvelope.getArea();
         Envelope envSecondDS= rawSpatialSecondDS.boundaryEnvelope;
         //get percentage area between two datasets
         double areaIntersectFirstWSecond=this.boundaryEnvelope.intersection(envSecondDS).getArea();
-        double areaIntersectSecondWFirst=envSecondDS.intersection(this.boundaryEnvelope).getArea();
-        this.overlapMBRFirstDS=areaIntersectFirstWSecond/areaIntersectSecondWFirst;
-        this.overlapMBRSecondDS=areaIntersectSecondWFirst/areaIntersectFirstWSecond;
+        //double areaIntersectSecondWFirst=envSecondDS.intersection(this.boundaryEnvelope).getArea();
+        this.overlapMBRFirstDS=areaIntersectFirstWSecond/this.boundaryEnvelope.getArea();
+        this.overlapMBRSecondDS=areaIntersectFirstWSecond/envSecondDS.getArea();
         //finding Jaccard Similarity
         Envelope envUnionOfTwoDS = new Envelope(0,0,0,0);
         envUnionOfTwoDS.expandToInclude(this.boundaryEnvelope);
         envUnionOfTwoDS.expandToInclude(envSecondDS);
-        this.jaccardSimilarity=this.boundaryEnvelope.intersection(envSecondDS).getArea()/envUnionOfTwoDS.getArea();
-        System.out.println("Percentage area of first dataset: "+this.overlapMBRFirstDS);
-        System.out.println("Percentager area of Second dataset: "+this.overlapMBRSecondDS);
-        System.out.println("Jaccard Similarity: "+this.jaccardSimilarity);
+        this.jaccardSimilarity=areaIntersectFirstWSecond/envUnionOfTwoDS.getArea();
+//        System.out.println("Percentage area of first dataset: "+this.overlapMBRFirstDS);
+//        System.out.println("Percentager area of Second dataset: "+this.overlapMBRSecondDS);
+//        System.out.println("Jaccard Similarity: "+this.jaccardSimilarity);
 
     }
 
@@ -406,7 +406,7 @@ public class SpatialRDD<T extends Geometry>
             throws Exception
     {
         calc_partitioner(gridType, numPartitions);
-        this.spatialPartitionedRDD = partition(partitioner);
+        this.spatialPartitionedRDD = partitionN(partitioner);
     }
 
     public SpatialPartitioner getPartitioner()
@@ -414,10 +414,10 @@ public class SpatialRDD<T extends Geometry>
         return partitioner;
     }
 
-    public void spatialPartitioning(SpatialPartitioner partitioner)
-    {
+    public void spatialPartitioning(SpatialPartitioner partitioner) throws Exception {
         this.partitioner = partitioner;
         this.spatialPartitionedRDD = partition(partitioner);
+        this.analyzePartition();
     }
 
     /**
@@ -484,7 +484,51 @@ public class SpatialRDD<T extends Geometry>
                     }
                 }, true);
     }
+    //*
+    private JavaRDD<T> partitionN(final SpatialPartitioner partitioner)
+    {
 
+        return this.rawSpatialRDD.flatMapToPair(
+                        new PairFlatMapFunction<T, Integer, Tuple2<T, Short>>()
+                        {
+                            @Override
+                            public Iterator<Tuple2<Integer, Tuple2 <T,Short>>> call(T spatialObject)
+                                    throws Exception
+                            {
+                                return partitioner.placeObjectN(spatialObject);
+                            }
+                        }
+                ).partitionBy(partitioner)
+                .mapPartitions(new FlatMapFunction<Iterator<Tuple2<Integer, Tuple2 <T,Short>>>, T>()
+                {
+                    @Override
+                    public Iterator<T> call(final Iterator<Tuple2<Integer, Tuple2 <T,Short>>> tuple2Iterator)
+                            throws Exception
+                    {
+                        return new Iterator<T>()
+                        {
+                            @Override
+                            public boolean hasNext()
+                            {
+                                return tuple2Iterator.hasNext();
+                            }
+
+                            @Override
+                            public T next()
+                            {
+                                return tuple2Iterator.next()._2._1;
+                            }
+
+                            @Override
+                            public void remove()
+                            {
+                                throw new UnsupportedOperationException();
+                            }
+                        };
+                    }
+                }, true);
+    }
+    //*/
     /**
      * Count without duplicates.
      *
@@ -684,11 +728,11 @@ public class SpatialRDD<T extends Geometry>
         SimpleRegression reg_E0 = new SimpleRegression();
         reg_E0.addData(datapPointsBC0f);
         this.E_0=reg_E0.getSlope();
-        System.out.println("E0 Slope: "+ E_0);
+        //System.out.println("E0 Slope: "+ E_0);
         SimpleRegression reg_E2 = new SimpleRegression();
         reg_E2.addData(datapPointsBC2f);
         this.E_2=reg_E2.getSlope();
-        System.out.println("E2 Slope: "+ E_2);
+        //System.out.println("E2 Slope: "+ E_2);
 
     }
 

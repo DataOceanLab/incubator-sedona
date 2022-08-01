@@ -23,6 +23,7 @@ import org.apache.sedona.core.enums.GridType;
 import org.apache.sedona.core.joinJudgement.DedupParams;
 import org.locationtech.jts.geom.Geometry;
 import scala.Tuple2;
+import scala.Tuple3;
 
 import javax.annotation.Nullable;
 
@@ -51,6 +52,11 @@ public class KDBTreePartitioner
             throws Exception
     {
         return tree.placeObject(spatialObject);
+    }
+    public Iterator<Tuple2<Integer, Tuple2 <Geometry,Short>>> placeObjectN(Geometry spatialObject)
+            throws Exception
+    {
+        return tree.placeObjectN(spatialObject);
     }
 
     @Nullable

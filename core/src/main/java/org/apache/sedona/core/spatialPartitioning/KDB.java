@@ -283,6 +283,60 @@ public class KDB extends PartitioningUtils
 
         return result.iterator();
     }
+    //aabir
+    public Iterator<Tuple2<Integer, Tuple2 <Geometry,Short>>> placeObjectN(Geometry geometry) {
+        Objects.requireNonNull(geometry, "spatialObject");
+
+        final Envelope envelope = geometry.getEnvelopeInternal();
+
+        final List<KDB> matchedPartitions = findLeafNodes(envelope);
+
+        final Point point = geometry instanceof Point ? (Point) geometry : null;
+
+        final Set<Tuple2<Integer, Tuple2 <Geometry,Short>>> result = new HashSet<>();
+        for (KDB leaf : matchedPartitions) {
+            // For points, make sure to return only one partition
+            if (point != null && !(new HalfOpenRectangle(leaf.getExtent())).contains(point)) {
+                continue;
+            }
+            Envelope obj=geometry.getEnvelopeInternal();
+            if(obj.getMinX() >= leaf.getExtent().getMinX() &&
+                    obj.getMinX() <= leaf.getExtent().getMaxX() &&
+                    obj.getMinY() >= leaf.getExtent().getMinY() &&
+                    obj.getMinY() <= leaf.getExtent().getMaxY()){
+                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class A");
+                result.add(new Tuple2(leaf.getLeafId(), new Tuple2(geometry,1)));
+            }
+            else if(obj.getMinX() >= leaf.getExtent().getMinX() &&
+                    obj.getMinX() <= leaf.getExtent().getMaxX() &&
+                    (obj.getMinY() > leaf.getExtent().getMinY() ||
+                            obj.getMinY() < leaf.getExtent().getMaxY())){
+                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class B");
+                result.add(new Tuple2(leaf.getLeafId(), new Tuple2(geometry,2)));
+            }
+            else if((obj.getMinX() > leaf.getExtent().getMinX() ||
+                    obj.getMinX() < leaf.getExtent().getMaxX()) &&
+                    obj.getMinY() >= leaf.getExtent().getMinY() &&
+                    obj.getMinY() <= leaf.getExtent().getMaxY()){
+                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Grid:  "+ leaf.getExtent() +"  Class C");
+                result.add(new Tuple2(leaf.getLeafId(), new Tuple2(geometry,3)));
+            }
+            else if((obj.getMinX() > leaf.getExtent().getMinX() ||
+                    obj.getMinX() < leaf.getExtent().getMaxX()) &&
+                    (obj.getMinY() > leaf.getExtent().getMinY() ||
+                            obj.getMinY() < leaf.getExtent().getMaxY())){
+                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class D");
+                result.add(new Tuple2(leaf.getLeafId(), new Tuple2(geometry,4)));
+            }
+
+            //System.out.println("Grid X range: " +  leaf.getExtent().getMinX() + " "+leaf.getExtent().getMaxX() +"    Y Range: "+ leaf.getExtent().getMinY() + " "+leaf.getExtent().getMaxY() );
+            //System.out.println("Object  top left corner: " +  geometry.getEnvelopeInternal().getMinX() + "  "+ geometry.getEnvelopeInternal().getMinY() );
+
+            //result.add(new Tuple2(leaf.getLeafId(), geometry));
+        }
+
+        return result.iterator();
+    }
 
     @Override
     public Set<Integer> getKeys(Geometry geometry) {

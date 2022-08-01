@@ -51,6 +51,12 @@ public class FlatGridPartitioner
         EqualPartitioning partitioning = new EqualPartitioning(grids);
         return partitioning.placeObject(spatialObject);
     }
+    public Iterator<Tuple2<Integer, Geometry>> placeObjectN(Geometry spatialObject)
+            throws Exception
+    {
+        EqualPartitioning partitioning = new EqualPartitioning(grids);
+        return partitioning.placeObject(spatialObject);
+    }
 
     @Nullable
     public DedupParams getDedupParams()

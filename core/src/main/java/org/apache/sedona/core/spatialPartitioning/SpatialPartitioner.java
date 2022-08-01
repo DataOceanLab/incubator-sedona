@@ -25,6 +25,7 @@ import org.apache.spark.Partitioner;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import scala.Tuple2;
+import scala.Tuple3;
 
 import javax.annotation.Nullable;
 
@@ -55,6 +56,10 @@ abstract public class SpatialPartitioner
      */
     abstract public <T extends Geometry> Iterator<Tuple2<Integer, T>>
     placeObject(T spatialObject)
+            throws Exception;
+
+    abstract public <T extends Geometry> Iterator<Tuple2<Integer, Tuple2 <T,Short>>>
+    placeObjectN(T spatialObject)
             throws Exception;
 
     @Nullable
