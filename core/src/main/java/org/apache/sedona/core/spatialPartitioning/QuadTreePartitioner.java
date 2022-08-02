@@ -24,6 +24,7 @@ import org.apache.sedona.core.joinJudgement.DedupParams;
 import org.apache.sedona.core.spatialPartitioning.quadtree.StandardQuadTree;
 import org.locationtech.jts.geom.Geometry;
 import scala.Tuple2;
+import scala.Tuple3;
 
 import javax.annotation.Nullable;
 
@@ -54,6 +55,11 @@ public class QuadTreePartitioner
             throws Exception
     {
         return quadTree.placeObject(spatialObject);
+    }
+
+    @Override
+    public Iterator<Tuple2<Integer, Tuple3<Geometry, Short, Long>>> placeObjectN2(Tuple2<Geometry, Long> spatialObject) throws Exception {
+        return null;
     }
 
     @Nullable

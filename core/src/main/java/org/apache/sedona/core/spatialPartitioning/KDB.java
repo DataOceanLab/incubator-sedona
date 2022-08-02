@@ -24,6 +24,7 @@ import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Point;
 import scala.Tuple2;
+import scala.Tuple3;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -327,6 +328,59 @@ public class KDB extends PartitioningUtils
                             obj.getMinY() < leaf.getExtent().getMaxY())){
                 System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class D");
                 result.add(new Tuple2(leaf.getLeafId(), new Tuple2(geometry,(short)4)));
+            }
+
+            //System.out.println("Grid X range: " +  leaf.getExtent().getMinX() + " "+leaf.getExtent().getMaxX() +"    Y Range: "+ leaf.getExtent().getMinY() + " "+leaf.getExtent().getMaxY() );
+            //System.out.println("Object  top left corner: " +  geometry.getEnvelopeInternal().getMinX() + "  "+ geometry.getEnvelopeInternal().getMinY() );
+
+            //result.add(new Tuple2(leaf.getLeafId(), geometry));
+        }
+
+        return result.iterator();
+    }
+    public Iterator<Tuple2<Integer, Tuple3<Geometry,Short,Long>>> placeObjectN2(Tuple2<Geometry,Long> geometry) {
+        Objects.requireNonNull(geometry._1, "spatialObject");
+
+        final Envelope envelope = geometry._1.getEnvelopeInternal();
+
+        final List<KDB> matchedPartitions = findLeafNodes(envelope);
+
+        final Point point = geometry._1 instanceof Point ? (Point) geometry._1 : null;
+
+        final Set<Tuple2<Integer, Tuple3 <Geometry,Short,Long>>> result = new HashSet<>();
+        for (KDB leaf : matchedPartitions) {
+            // For points, make sure to return only one partition
+            if (point != null && !(new HalfOpenRectangle(leaf.getExtent())).contains(point)) {
+                continue;
+            }
+            Envelope obj=geometry._1.getEnvelopeInternal();
+            if(obj.getMinX() >= leaf.getExtent().getMinX() &&
+                    obj.getMinX() < leaf.getExtent().getMaxX() &&
+                    obj.getMinY() >= leaf.getExtent().getMinY() &&
+                    obj.getMinY() < leaf.getExtent().getMaxY()){
+                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class A");
+                result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)1,geometry._2)));
+            }
+            else if((obj.getMinX() >= leaf.getExtent().getMinX() &&
+                    obj.getMinX() < leaf.getExtent().getMaxX()) &&
+                    (obj.getMinY() > leaf.getExtent().getMinY() ||
+                            obj.getMinY() < leaf.getExtent().getMaxY())){
+                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class B");
+                result.add(new Tuple2(leaf.getLeafId(), new Tuple3(null,(short)2,geometry._2)));
+            }
+            else if((obj.getMinX() > leaf.getExtent().getMinX() ||
+                    obj.getMinX() < leaf.getExtent().getMaxX()) &&
+                    (obj.getMinY() >= leaf.getExtent().getMinY() &&
+                            obj.getMinY() < leaf.getExtent().getMaxY())){
+                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Grid:  "+ leaf.getExtent() +"  Class C");
+                result.add(new Tuple2(leaf.getLeafId(), new Tuple3(null,(short)3,geometry._2)));
+            }
+            else if((obj.getMinX() > leaf.getExtent().getMinX() ||
+                    obj.getMinX() < leaf.getExtent().getMaxX()) &&
+                    (obj.getMinY() > leaf.getExtent().getMinY() ||
+                            obj.getMinY() < leaf.getExtent().getMaxY())){
+                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class D");
+                result.add(new Tuple2(leaf.getLeafId(), new Tuple3(null,(short)4,geometry._2)));
             }
 
             //System.out.println("Grid X range: " +  leaf.getExtent().getMinX() + " "+leaf.getExtent().getMaxX() +"    Y Range: "+ leaf.getExtent().getMinY() + " "+leaf.getExtent().getMaxY() );

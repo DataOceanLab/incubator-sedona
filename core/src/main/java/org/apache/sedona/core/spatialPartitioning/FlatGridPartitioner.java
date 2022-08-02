@@ -24,6 +24,7 @@ import org.apache.sedona.core.joinJudgement.DedupParams;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import scala.Tuple2;
+import scala.Tuple3;
 
 import javax.annotation.Nullable;
 
@@ -36,6 +37,11 @@ public class FlatGridPartitioner
     public FlatGridPartitioner(GridType gridType, List<Envelope> grids)
     {
         super(gridType, grids);
+    }
+
+    @Override
+    public Iterator<Tuple2<Integer, Tuple3<Geometry, Short, Long>>> placeObjectN2(Tuple2<Geometry, Long> spatialObject) throws Exception {
+        return null;
     }
 
     // For backwards compatibility (see SpatialRDD.spatialPartitioning(otherGrids))
@@ -57,6 +63,7 @@ public class FlatGridPartitioner
         EqualPartitioning partitioning = new EqualPartitioning(grids);
         return partitioning.placeObject(spatialObject);
     }
+
 
     @Nullable
     public DedupParams getDedupParams()

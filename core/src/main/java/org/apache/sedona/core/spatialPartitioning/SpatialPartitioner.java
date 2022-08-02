@@ -62,6 +62,10 @@ abstract public class SpatialPartitioner
     placeObjectN(T spatialObject)
             throws Exception;
 
+    abstract public Iterator<Tuple2<Integer, Tuple3 <Geometry,Short,Long>>>
+    placeObjectN2(Tuple2<Geometry,Long> spatialObject)
+            throws Exception;
+
     @Nullable
     abstract public DedupParams getDedupParams();
 

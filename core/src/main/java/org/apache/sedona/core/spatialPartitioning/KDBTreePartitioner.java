@@ -53,10 +53,17 @@ public class KDBTreePartitioner
     {
         return tree.placeObject(spatialObject);
     }
+    @Override
     public Iterator<Tuple2<Integer, Tuple2 <Geometry,Short>>> placeObjectN(Geometry spatialObject)
             throws Exception
     {
         return tree.placeObjectN(spatialObject);
+    }
+    @Override
+    public Iterator<Tuple2<Integer, Tuple3 <Geometry,Short,Long>>> placeObjectN2(Tuple2<Geometry,Long> spatialObject)
+            throws Exception
+    {
+        return tree.placeObjectN2(spatialObject);
     }
 
     @Nullable

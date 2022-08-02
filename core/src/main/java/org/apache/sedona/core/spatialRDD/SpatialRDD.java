@@ -137,6 +137,7 @@ public class SpatialRDD<T extends Geometry>
      */
     public JavaRDD<T> spatialPartitionedRDD;
     public JavaRDD<Tuple2<T,Short>> spatialPartitionedRDDN;
+    public JavaRDD<Tuple3<Geometry,Short,Long>> spatialPartitionedRDDN2;
 
     /**
      * The indexed RDD.
@@ -152,6 +153,7 @@ public class SpatialRDD<T extends Geometry>
      * The raw spatial RDD.
      */
     public JavaRDD<T> rawSpatialRDD;
+    public JavaPairRDD<Geometry, Long> rawSpatialRDDN;
 
     public List<String> fieldNames;
     /**
@@ -215,6 +217,7 @@ public class SpatialRDD<T extends Geometry>
                     return (T) JTS.transform(originalObject, transform);
                 }
             });
+
             return true;
         }
         catch (FactoryException e) {
@@ -409,6 +412,7 @@ public class SpatialRDD<T extends Geometry>
     {
         calc_partitioner(gridType, numPartitions);
         this.spatialPartitionedRDDN = partitionN(partitioner);
+        this.spatialPartitionedRDDN2= partitionN2(partitioner);
     }
 
     public SpatialPartitioner getPartitioner()
@@ -520,6 +524,51 @@ public class SpatialRDD<T extends Geometry>
                             {
                                 Tuple2<Integer, Tuple2 <T,Short>> nxt=tuple2Iterator.next();
                                 return new Tuple2<T,Short>(nxt._2._1,nxt._2._2);
+                            }
+
+                            @Override
+                            public void remove()
+                            {
+                                throw new UnsupportedOperationException();
+                            }
+                        };
+                    }
+                }, true);
+    }
+    //*
+    private JavaRDD<Tuple3<Geometry, Short, Long>> partitionN2(final SpatialPartitioner partitioner)
+    {
+
+        return this.rawSpatialRDDN.flatMapToPair(
+                        new PairFlatMapFunction<Tuple2<Geometry, Long>, Integer, Tuple3<Geometry, Short, Long>>()
+                        {
+                            @Override
+                            public Iterator<Tuple2<Integer, Tuple3<Geometry, Short, Long>>> call(Tuple2<Geometry,Long> spatialObject)
+                                    throws Exception
+                            {
+                                return partitioner.placeObjectN2(spatialObject);
+                            }
+                        }
+                ).partitionBy(partitioner)
+                .mapPartitions(new FlatMapFunction<Iterator<Tuple2<Integer, Tuple3 <Geometry,Short,Long>>>, Tuple3 <Geometry,Short,Long>>()
+                {
+                    @Override
+                    public Iterator<Tuple3 <Geometry,Short,Long>> call(final Iterator<Tuple2<Integer, Tuple3 <Geometry,Short,Long>>> tuple2Iterator)
+                            throws Exception
+                    {
+                        return new Iterator<Tuple3<Geometry,Short,Long>>()
+                        {
+                            @Override
+                            public boolean hasNext()
+                            {
+                                return tuple2Iterator.hasNext();
+                            }
+
+                            @Override
+                            public Tuple3<Geometry,Short,Long> next()
+                            {
+                                Tuple2<Integer, Tuple3 <Geometry,Short,Long>> nxt=tuple2Iterator.next();
+                                return new Tuple3(nxt._2()._1(), nxt._2()._2(),nxt._2()._3());
                             }
 
                             @Override
@@ -658,7 +707,8 @@ public class SpatialRDD<T extends Geometry>
                 return StatCalculator.add(agg, object);
             }
         };
-
+        this.rawSpatialRDDN=(JavaPairRDD<Geometry, Long>) this.rawSpatialRDD.zipWithIndex();
+        System.out.println(this.rawSpatialRDDN.collect());
         StatCalculator agg = (StatCalculator) this.rawSpatialRDD.aggregate(null, seqOp, combOp);
         if (agg != null) {
             this.boundaryEnvelope = agg.getBoundary();

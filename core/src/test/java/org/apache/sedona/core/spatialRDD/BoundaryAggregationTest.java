@@ -31,6 +31,7 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import scala.Tuple2;
+import scala.Tuple3;
 
 import java.util.List;
 
@@ -73,9 +74,14 @@ public class BoundaryAggregationTest extends SpatialRDDTestBase
         spatialRDD.spatialPartitioning(GridType.KDBTREE);
         spatialRDD.analyzeCombinedStats(spatialRDD);
         List<Tuple2<Geometry,Short>> ls=spatialRDD.spatialPartitionedRDDN.collect();
+        List<Tuple3<Geometry,Short,Long>> ls2=spatialRDD.spatialPartitionedRDDN2.collect();
+
         //System.out.println(ls);
-        for (Tuple2 t:ls) {
+        /*for (Tuple2 t:ls) {
             System.out.println(t._1 +"   "+t._2);
+        }*/
+        for (Tuple3 t:ls2) {
+            System.out.println(t._1() +"   "+t._2()+"  "+t._3());
         }
 
         assert spatialRDD.approximateTotalCount == 10;
