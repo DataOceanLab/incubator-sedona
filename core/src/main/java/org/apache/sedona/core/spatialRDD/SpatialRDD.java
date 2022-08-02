@@ -136,6 +136,7 @@ public class SpatialRDD<T extends Geometry>
      * The spatial partitioned RDD.
      */
     public JavaRDD<T> spatialPartitionedRDD;
+    public JavaRDD<Tuple2<T,Short>> spatialPartitionedRDDN;
 
     /**
      * The indexed RDD.
@@ -240,7 +241,7 @@ public class SpatialRDD<T extends Geometry>
     {
         int numPartitions = this.rawSpatialRDD.rdd().partitions().length;
         spatialPartitioning(gridType, numPartitions);
-        this.analyzePartition();
+        //this.analyzePartition();
         return true;
     }
     public void analyzePartition()
@@ -301,6 +302,7 @@ public class SpatialRDD<T extends Geometry>
 //        System.out.println("total_cells: "+this.total_cells);
 
     }
+
     public void analyzeCombinedStats(SpatialRDD rawSpatialSecondDS){
         double mbrFirstDS=this.boundaryEnvelope.getArea();
         Envelope envSecondDS= rawSpatialSecondDS.boundaryEnvelope;
@@ -406,7 +408,7 @@ public class SpatialRDD<T extends Geometry>
             throws Exception
     {
         calc_partitioner(gridType, numPartitions);
-        this.spatialPartitionedRDD = partitionN(partitioner);
+        this.spatialPartitionedRDDN = partitionN(partitioner);
     }
 
     public SpatialPartitioner getPartitioner()
@@ -485,7 +487,7 @@ public class SpatialRDD<T extends Geometry>
                 }, true);
     }
     //*
-    private JavaRDD<T> partitionN(final SpatialPartitioner partitioner)
+    private JavaRDD<Tuple2<T,Short>> partitionN(final SpatialPartitioner partitioner)
     {
 
         return this.rawSpatialRDD.flatMapToPair(
@@ -499,13 +501,13 @@ public class SpatialRDD<T extends Geometry>
                             }
                         }
                 ).partitionBy(partitioner)
-                .mapPartitions(new FlatMapFunction<Iterator<Tuple2<Integer, Tuple2 <T,Short>>>, T>()
+                .mapPartitions(new FlatMapFunction<Iterator<Tuple2<Integer, Tuple2 <T,Short>>>, Tuple2 <T,Short>>()
                 {
                     @Override
-                    public Iterator<T> call(final Iterator<Tuple2<Integer, Tuple2 <T,Short>>> tuple2Iterator)
+                    public Iterator<Tuple2 <T,Short>> call(final Iterator<Tuple2<Integer, Tuple2 <T,Short>>> tuple2Iterator)
                             throws Exception
                     {
-                        return new Iterator<T>()
+                        return new Iterator<Tuple2<T,Short>>()
                         {
                             @Override
                             public boolean hasNext()
@@ -514,9 +516,10 @@ public class SpatialRDD<T extends Geometry>
                             }
 
                             @Override
-                            public T next()
+                            public Tuple2<T,Short> next()
                             {
-                                return tuple2Iterator.next()._2._1;
+                                Tuple2<Integer, Tuple2 <T,Short>> nxt=tuple2Iterator.next();
+                                return new Tuple2<T,Short>(nxt._2._1,nxt._2._2);
                             }
 
                             @Override

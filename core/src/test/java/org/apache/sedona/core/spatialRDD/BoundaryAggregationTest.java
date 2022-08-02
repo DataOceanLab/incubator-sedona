@@ -72,8 +72,11 @@ public class BoundaryAggregationTest extends SpatialRDDTestBase
         spatialRDD.analyze(new double[]{2,3,5,7,9,11});
         spatialRDD.spatialPartitioning(GridType.KDBTREE);
         spatialRDD.analyzeCombinedStats(spatialRDD);
-        List<Geometry> ls=spatialRDD.spatialPartitionedRDD.collect();
-        System.out.println(ls);
+        List<Tuple2<Geometry,Short>> ls=spatialRDD.spatialPartitionedRDDN.collect();
+        //System.out.println(ls);
+        for (Tuple2 t:ls) {
+            System.out.println(t._1 +"   "+t._2);
+        }
 
         assert spatialRDD.approximateTotalCount == 10;
         assert spatialRDD.avgMBRArea == 2.0;
