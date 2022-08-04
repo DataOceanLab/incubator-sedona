@@ -33,6 +33,7 @@ import org.locationtech.jts.io.WKTReader;
 import scala.Tuple2;
 import scala.Tuple3;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -73,16 +74,20 @@ public class BoundaryAggregationTest extends SpatialRDDTestBase
         spatialRDD.analyze(new double[]{2,3,5,7,9,11});
         spatialRDD.spatialPartitioning(GridType.KDBTREE);
         spatialRDD.analyzeCombinedStats(spatialRDD);
-        List<Tuple2<Geometry,Short>> ls=spatialRDD.spatialPartitionedRDDN.collect();
-        List<Tuple3<Geometry,Short,Long>> ls2=spatialRDD.spatialPartitionedRDDN2.collect();
+        //List<Tuple2<Geometry,Short>> ls=spatialRDD.spatialPartitionedRDDN.collect();
+        //List<Tuple3<Geometry,Short,Long>> ls2=spatialRDD.spatialPartitionedRDDN2.collect();
 
         //System.out.println(ls);
         /*for (Tuple2 t:ls) {
             System.out.println(t._1 +"   "+t._2);
-        }*/
+        }
         for (Tuple3 t:ls2) {
             System.out.println(t._1() +"   "+t._2()+"  "+t._3());
-        }
+        }*/
+        System.out.println("rawSpatialRDD "+ spatialRDD.rawSpatialRDD.count());
+        System.out.println("SpatialRDDN "+ spatialRDD.spatialPartitionedRDDN2.count());
+        System.out.println("Boundary Rectangle "+ spatialRDD.boundaryRectRDD.count() );
+
 
         assert spatialRDD.approximateTotalCount == 10;
         assert spatialRDD.avgMBRArea == 2.0;

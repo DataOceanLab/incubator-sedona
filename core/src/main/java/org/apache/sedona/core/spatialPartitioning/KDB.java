@@ -358,28 +358,35 @@ public class KDB extends PartitioningUtils
                     obj.getMinX() < leaf.getExtent().getMaxX() &&
                     obj.getMinY() >= leaf.getExtent().getMinY() &&
                     obj.getMinY() < leaf.getExtent().getMaxY()){
-                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class A");
-                result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)1,geometry._2)));
+                if(leaf.getExtent().contains(obj)){
+                    result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)1,geometry._2)));
+                    System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Obj: "+obj +" Grid:  "+ leaf.getExtent() +"  Class 1");
+
+                }else {
+                    result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)5,geometry._2)));
+                    System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Obj: "+obj + " Grid:  "+ leaf.getExtent() +"  Class 5");
+                }
+
             }
             else if((obj.getMinX() >= leaf.getExtent().getMinX() &&
                     obj.getMinX() < leaf.getExtent().getMaxX()) &&
                     (obj.getMinY() > leaf.getExtent().getMinY() ||
                             obj.getMinY() < leaf.getExtent().getMaxY())){
-                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class B");
+                //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class B");
                 result.add(new Tuple2(leaf.getLeafId(), new Tuple3(null,(short)2,geometry._2)));
             }
             else if((obj.getMinX() > leaf.getExtent().getMinX() ||
                     obj.getMinX() < leaf.getExtent().getMaxX()) &&
                     (obj.getMinY() >= leaf.getExtent().getMinY() &&
                             obj.getMinY() < leaf.getExtent().getMaxY())){
-                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Grid:  "+ leaf.getExtent() +"  Class C");
+                //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Grid:  "+ leaf.getExtent() +"  Class C");
                 result.add(new Tuple2(leaf.getLeafId(), new Tuple3(null,(short)3,geometry._2)));
             }
             else if((obj.getMinX() > leaf.getExtent().getMinX() ||
                     obj.getMinX() < leaf.getExtent().getMaxX()) &&
                     (obj.getMinY() > leaf.getExtent().getMinY() ||
                             obj.getMinY() < leaf.getExtent().getMaxY())){
-                System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class D");
+                //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class D");
                 result.add(new Tuple2(leaf.getLeafId(), new Tuple3(null,(short)4,geometry._2)));
             }
 

@@ -37,6 +37,7 @@ import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.storage.StorageLevel;
+import org.apache.spark.util.SizeEstimator;
 import org.apache.spark.util.random.SamplingUtils;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
@@ -138,6 +139,7 @@ public class SpatialRDD<T extends Geometry>
     public JavaRDD<T> spatialPartitionedRDD;
     public JavaRDD<Tuple2<T,Short>> spatialPartitionedRDDN;
     public JavaRDD<Tuple3<Geometry,Short,Long>> spatialPartitionedRDDN2;
+    public JavaRDD<Tuple3<Geometry,Short,Long>> boundaryRectRDD;
 
     /**
      * The indexed RDD.
@@ -411,8 +413,11 @@ public class SpatialRDD<T extends Geometry>
             throws Exception
     {
         calc_partitioner(gridType, numPartitions);
-        this.spatialPartitionedRDDN = partitionN(partitioner);
+        this.spatialPartitionedRDD = partition(partitioner);
         this.spatialPartitionedRDDN2= partitionN2(partitioner);
+        this.boundaryRectRDD=this.spatialPartitionedRDDN2.filter(f-> (f._2()==5));
+        this.analyzePartition();
+
     }
 
     public SpatialPartitioner getPartitioner()
@@ -708,7 +713,6 @@ public class SpatialRDD<T extends Geometry>
             }
         };
         this.rawSpatialRDDN=(JavaPairRDD<Geometry, Long>) this.rawSpatialRDD.zipWithIndex();
-        System.out.println(this.rawSpatialRDDN.collect());
         StatCalculator agg = (StatCalculator) this.rawSpatialRDD.aggregate(null, seqOp, combOp);
         if (agg != null) {
             this.boundaryEnvelope = agg.getBoundary();
