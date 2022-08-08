@@ -108,6 +108,9 @@ public class SpatialRDD<T extends Geometry>
      * The total Overlap area.
      */
     public double load_balance = 0.0;
+    public double load_balanceN = 0.0;
+    public double load_balanceBRN = 0.0;
+
     /**
      * The MBR area Overlapping for first dateset.
      */
@@ -305,6 +308,91 @@ public class SpatialRDD<T extends Geometry>
 //        System.out.println("TT_area: "+this.TT_area);
 //        System.out.println("TT_margin: "+this.TT_margin);
 //        System.out.println("total_cells: "+this.total_cells);
+
+    }
+    public void analyzePartitionN()
+            throws Exception
+    {
+        this.total_cells=this.spatialPartitionedRDDN2.getNumPartitions();
+        //double avgCard=this.spatialPartitionedRDD.count()/this.spatialPartitionedRDD.getNumPartitions();
+        long countData=0;
+        JavaRDD<Tuple4<Double,Double,Envelope,Long>> mapJavaRDD = this.spatialPartitionedRDDN2.mapPartitions(new FlatMapFunction<Iterator<Tuple3<Geometry,Short,Long>>, Tuple4<Double,Double,Envelope,Long>>() {
+            @Override
+            public Iterator<Tuple4<Double,Double,Envelope,Long>> call(Iterator<Tuple3<Geometry,Short,Long>> tIterator) throws Exception {
+                ArrayList<Tuple4<Double,Double,Envelope,Long>> wkbs = new ArrayList<>();
+                ArrayList<Envelope> partitionENV = new ArrayList<>();
+                long count=0;
+                Envelope accENV=new Envelope(0,0,0,0);
+                while(tIterator.hasNext()){
+                    Tuple3 <Geometry,Short,Long> nxt=tIterator.next();
+                    if(nxt._1() == null){
+                        continue;
+                    }
+                    Geometry spatialObject = nxt._1();
+                    Envelope spatialObjectMBr= spatialObject.getEnvelopeInternal();
+                    accENV.expandToInclude(spatialObjectMBr);
+                    count++;
+                }
+                //double partitionLBCalc=Math.pow((double) (count-avgCard),2);// Cardinality per partition minus avgCard
+                partitionENV.add(accENV);
+                double envMBRArea=accENV.getArea();
+                double envSemiPerim=(accENV.getHeight()+ accENV.getWidth())/2;
+                wkbs.add(new Tuple4<>(envMBRArea,envSemiPerim,accENV,count));
+                return wkbs.iterator();
+            }
+        });
+
+        JavaRDD<Long> mapBRDD = this.boundaryRectRDD.mapPartitions(new FlatMapFunction<Iterator<Tuple3<Geometry,Short,Long>>, Long>() {
+            @Override
+            public Iterator<Long> call(Iterator<Tuple3<Geometry,Short,Long>> tIterator) throws Exception {
+                ArrayList<Long> wkbs = new ArrayList<>();
+                long count=0;
+                while(tIterator.hasNext()){
+                    tIterator.next();
+                    count++;
+                }
+                wkbs.add(count);
+                //System.out.println(count);
+                return wkbs.iterator();
+            }
+        });
+        for (Tuple4 data:mapJavaRDD.collect()) {
+            this.TT_area=this.TT_area+ (double)data._1();
+            this.TT_margin=this.TT_margin+ (double)data._2();
+            //this.load_balance=this.load_balance+(double)data._4();
+            countData=countData+(long)data._4();
+        }
+        double avgCard=countData/this.spatialPartitionedRDDN2.getNumPartitions();
+        for (Tuple4 data:mapJavaRDD.collect()) {
+            this.load_balanceN=this.load_balanceN+Math.pow(((long)data._4()-avgCard),2);
+        }
+        this.load_balanceN=Math.sqrt((this.load_balanceN/countData));
+
+        long brCount=this.boundaryRectRDD.count();
+        double avgCardBR=brCount/this.boundaryRectRDD.getNumPartitions();
+        for (Long data:mapBRDD.collect()) {
+            this.load_balanceBRN=this.load_balanceBRN+Math.pow((data-avgCardBR),2);
+        }
+        this.load_balanceBRN=Math.sqrt((this.load_balanceBRN/brCount));
+
+        for (int i = 0; i < this.total_cells; i++) {
+            double sumareai=0;
+            for (int j = 0; j < this.total_cells; j++) {
+                if(i==j){
+                    continue;
+                }
+                else {
+                    sumareai=sumareai+mapJavaRDD.collect().get(i)._3().intersection(mapJavaRDD.collect().get(j)._3()).getArea();
+                }
+            }
+            this.TT_overlap=this.TT_overlap+sumareai;
+        }
+//        System.out.println("Overlap: "+this.TT_overlap);
+//        System.out.println("Load Balance:"+ this.load_balance);
+//        System.out.println("TT_area: "+this.TT_area);
+//        System.out.println("TT_margin: "+this.TT_margin);
+//        System.out.println("total_cells: "+this.total_cells);
+          //System.out.println("N load balance:" +this.load_balanceN);
 
     }
 

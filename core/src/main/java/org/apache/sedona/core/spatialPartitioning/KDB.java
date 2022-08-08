@@ -360,11 +360,11 @@ public class KDB extends PartitioningUtils
                     obj.getMinY() < leaf.getExtent().getMaxY()){
                 if(leaf.getExtent().contains(obj)){
                     result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)1,geometry._2)));
-                    System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Obj: "+obj +" Grid:  "+ leaf.getExtent() +"  Class 1");
+                    //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Obj: "+obj +" Grid:  "+ leaf.getExtent() +"  Class 1");
 
                 }else {
                     result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)5,geometry._2)));
-                    System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Obj: "+obj + " Grid:  "+ leaf.getExtent() +"  Class 5");
+                    //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Obj: "+obj + " Grid:  "+ leaf.getExtent() +"  Class 5");
                 }
 
             }

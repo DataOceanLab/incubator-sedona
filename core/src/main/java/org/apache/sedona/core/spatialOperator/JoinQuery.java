@@ -198,6 +198,12 @@ public class JoinQuery
     {
         return spatialJoin(queryRDD, spatialRDD, joinParams);
     }
+    //aabir
+    public static <U extends Geometry, T extends Geometry> JavaPairRDD<U, T> SpatialJoinQueryFlatN(SpatialRDD<T> spatialRDD, SpatialRDD<U> queryRDD, JoinParams joinParams)
+            throws Exception
+    {
+        return spatialJoin(queryRDD, spatialRDD, joinParams);
+    }
 
     /**
      * {@link #SpatialJoinQueryFlat(SpatialRDD, SpatialRDD, boolean, boolean)} count by key.
@@ -408,6 +414,31 @@ public class JoinQuery
             joinResult = rightRDD.spatialPartitionedRDD.zipPartitions(leftRDD.spatialPartitionedRDD, judgement);
         }
 
+        return joinResult.mapToPair(new PairFunction<Pair<U, T>, U, T>()
+        {
+            @Override
+            public Tuple2<U, T> call(Pair<U, T> pair)
+                    throws Exception
+            {
+                return new Tuple2<>(pair.getKey(), pair.getValue());
+            }
+        });
+    }
+    public static <U extends Geometry, T extends Geometry> JavaPairRDD<U, T> spatialJoin2(
+            SpatialRDD<U> leftRDD,
+            SpatialRDD<T> rightRDD,
+            JoinParams joinParams)
+            throws Exception {
+        final SparkContext cxt = leftRDD.rawSpatialRDD.context();
+
+        final SpatialPartitioner partitioner =
+                (SpatialPartitioner) rightRDD.spatialPartitionedRDD.partitioner().get();
+        final DedupParams dedupParams = partitioner.getDedupParams();
+
+        final JavaRDD<Pair<U, T>> joinResult;
+        NestedLoopJudgement judgement = new NestedLoopJudgement(joinParams.considerBoundaryIntersection, dedupParams);
+        judgement.broadcastDedupParams(cxt);
+        joinResult = rightRDD.spatialPartitionedRDD.zipPartitions(leftRDD.spatialPartitionedRDD, judgement);
         return joinResult.mapToPair(new PairFunction<Pair<U, T>, U, T>()
         {
             @Override
