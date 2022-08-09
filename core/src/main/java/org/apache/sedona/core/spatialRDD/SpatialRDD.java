@@ -516,6 +516,8 @@ public class SpatialRDD<T extends Geometry>
     public void spatialPartitioning(SpatialPartitioner partitioner) throws Exception {
         this.partitioner = partitioner;
         this.spatialPartitionedRDD = partition(partitioner);
+        this.spatialPartitionedRDDN2= partitionN2(partitioner);
+        this.boundaryRectRDD=this.spatialPartitionedRDDN2.filter(f-> (f._2()==5));
         this.analyzePartition();
     }
 

@@ -25,11 +25,7 @@ import org.apache.log4j.Logger;
 import org.apache.sedona.core.enums.IndexType;
 import org.apache.sedona.core.enums.JoinBuildSide;
 import org.apache.sedona.core.geometryObjects.Circle;
-import org.apache.sedona.core.joinJudgement.DedupParams;
-import org.apache.sedona.core.joinJudgement.DynamicIndexLookupJudgement;
-import org.apache.sedona.core.joinJudgement.LeftIndexLookupJudgement;
-import org.apache.sedona.core.joinJudgement.NestedLoopJudgement;
-import org.apache.sedona.core.joinJudgement.RightIndexLookupJudgement;
+import org.apache.sedona.core.joinJudgement.*;
 import org.apache.sedona.core.monitoring.Metric;
 import org.apache.sedona.core.spatialPartitioning.SpatialPartitioner;
 import org.apache.sedona.core.spatialRDD.CircleRDD;
@@ -43,6 +39,7 @@ import org.apache.spark.api.java.function.PairFunction;
 import org.apache.sedona.core.monitoring.Metrics;
 import org.locationtech.jts.geom.Geometry;
 import scala.Tuple2;
+import scala.Tuple4;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -199,10 +196,14 @@ public class JoinQuery
         return spatialJoin(queryRDD, spatialRDD, joinParams);
     }
     //aabir
-    public static <U extends Geometry, T extends Geometry> JavaPairRDD<U, T> SpatialJoinQueryFlatN(SpatialRDD<T> spatialRDD, SpatialRDD<U> queryRDD, JoinParams joinParams)
+    public static <U extends Geometry, T extends Geometry> JavaPairRDD<Tuple2<Long,U>, Tuple2<Long,T>> SpatialJoinQueryFlatN(SpatialRDD<T> spatialRDD, SpatialRDD<U> queryRDD, JoinParams joinParams)
             throws Exception
     {
-        return spatialJoin(queryRDD, spatialRDD, joinParams);
+        return spatialJoin2(queryRDD, spatialRDD, joinParams);
+    }
+    public static <U extends Geometry, T extends Geometry> JavaPairRDD<Tuple2<Long,U>, Tuple2<Long,T>> SpatialJoinQueryFlatN(SpatialRDD<T> spatialRDD, SpatialRDD<U> queryRDD, boolean useIndex, boolean considerBoundaryIntersection) throws Exception {
+        final JoinParams params = new JoinParams(useIndex, considerBoundaryIntersection);
+        return spatialJoin2(queryRDD, spatialRDD, params);
     }
 
     /**
@@ -424,30 +425,35 @@ public class JoinQuery
             }
         });
     }
-    public static <U extends Geometry, T extends Geometry> JavaPairRDD<U, T> spatialJoin2(
+    public static <U extends Geometry, T extends Geometry> JavaPairRDD<Tuple2<Long,U>, Tuple2<Long,T>> spatialJoin2(
             SpatialRDD<U> leftRDD,
             SpatialRDD<T> rightRDD,
             JoinParams joinParams)
             throws Exception {
-        final SparkContext cxt = leftRDD.rawSpatialRDD.context();
+
+        System.out.println(leftRDD.spatialPartitionedRDDN2.count());
+        System.out.println(rightRDD.spatialPartitionedRDDN2.count());
+
+        final SparkContext cxt = leftRDD.rawSpatialRDDN.context();
 
         final SpatialPartitioner partitioner =
-                (SpatialPartitioner) rightRDD.spatialPartitionedRDD.partitioner().get();
+                (SpatialPartitioner) rightRDD.spatialPartitionedRDDN2.partitioner().get();
         final DedupParams dedupParams = partitioner.getDedupParams();
 
-        final JavaRDD<Pair<U, T>> joinResult;
-        NestedLoopJudgement judgement = new NestedLoopJudgement(joinParams.considerBoundaryIntersection, dedupParams);
+        final JavaRDD<Pair<Tuple2<Long,U>, Tuple2<Long,T>>> joinResult;
+        NestedLoopJudgementN judgement = new NestedLoopJudgementN(joinParams.considerBoundaryIntersection, dedupParams);
         judgement.broadcastDedupParams(cxt);
-        joinResult = rightRDD.spatialPartitionedRDD.zipPartitions(leftRDD.spatialPartitionedRDD, judgement);
-        return joinResult.mapToPair(new PairFunction<Pair<U, T>, U, T>()
+        joinResult = rightRDD.spatialPartitionedRDDN2.zipPartitions(leftRDD.spatialPartitionedRDDN2, judgement);
+        return joinResult.mapToPair(new PairFunction<Pair<Tuple2<Long,U>, Tuple2<Long,T>>, Tuple2<Long,U>, Tuple2<Long,T>>()
         {
             @Override
-            public Tuple2<U, T> call(Pair<U, T> pair)
+            public Tuple2<Tuple2<Long,U>, Tuple2<Long,T>> call(Pair<Tuple2<Long,U>, Tuple2<Long,T>> pair)
                     throws Exception
             {
                 return new Tuple2<>(pair.getKey(), pair.getValue());
             }
         });
+        //return null;
     }
 
     public static final class JoinParams
