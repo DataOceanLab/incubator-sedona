@@ -72,11 +72,32 @@ public class NestedLoopJudgementN<T extends Geometry, U extends Geometry>
                 //T object = queryObjects.get(i)._2;
                 Tuple3<Long,T,Short> object=queryObjects.get(i);
                 //log.warn("Check "+window.toText()+" with "+object.toText());
-                if (window != null && object !=null ) {
-                    result.add(Pair.of(new Tuple2<>(window._3(),window._1()), new Tuple2<>(object._1(),object._2())));
+                if (window._1() != null && object._2() !=null ) {
+                    if(window._1().intersects(object._2())) {
+                        result.add(Pair.of(new Tuple2<>(window._3(),window._1()), new Tuple2<>(object._1(),object._2())));
+                    }
                 }
                 else if(window._1()==null || object._2()== null){
-                    result.add(Pair.of(new Tuple2<>(window._3(),window._1()), new Tuple2<>(object._1(),object._2())));
+                    if(window._2()==1 || window._2()==5){
+                        if(object._3()==1 || object._3()==5 ||object._3()==3 || object._3()==2 || object._3()==4){
+                            result.add(Pair.of(new Tuple2<>(window._3(),window._1()), new Tuple2<>(object._1(),object._2())));
+                        }
+                    }
+                    else if(window._2()==2){
+                        if(object._3()==1 || object._3()==5 ||object._3()==3){
+                            result.add(Pair.of(new Tuple2<>(window._3(),window._1()), new Tuple2<>(object._1(),object._2())));
+                        }
+                    }
+                    else if(window._2()==3){
+                        if(object._3()==1 || object._3()==5 ||object._3()==2){
+                            result.add(Pair.of(new Tuple2<>(window._3(),window._1()), new Tuple2<>(object._1(),object._2())));
+                        }
+                    }
+                    else if(window._2()==4){
+                        if(object._3()==1 || object._3()==5){
+                            result.add(Pair.of(new Tuple2<>(window._3(),window._1()), new Tuple2<>(object._1(),object._2())));
+                        }
+                    }
                 }
             }
         }

@@ -39,6 +39,7 @@ import org.apache.spark.api.java.function.PairFunction;
 import org.apache.sedona.core.monitoring.Metrics;
 import org.locationtech.jts.geom.Geometry;
 import scala.Tuple2;
+import scala.Tuple3;
 import scala.Tuple4;
 
 import java.util.ArrayList;
@@ -431,8 +432,12 @@ public class JoinQuery
             JoinParams joinParams)
             throws Exception {
 
-        System.out.println(leftRDD.spatialPartitionedRDDN2.count());
-        System.out.println(rightRDD.spatialPartitionedRDDN2.count());
+        for (Tuple3 t: leftRDD.spatialPartitionedRDDN2.collect()
+             ) {
+            System.out.println(t._1()+"  "+t._2() + " "+t._3());
+        }
+        System.out.println(leftRDD.boundaryRectRDD.collect());
+        //System.out.println(rightRDD.boundaryRectRDD.collect());
 
         final SparkContext cxt = leftRDD.rawSpatialRDDN.context();
 
@@ -444,15 +449,57 @@ public class JoinQuery
         NestedLoopJudgementN judgement = new NestedLoopJudgementN(joinParams.considerBoundaryIntersection, dedupParams);
         judgement.broadcastDedupParams(cxt);
         joinResult = rightRDD.spatialPartitionedRDDN2.zipPartitions(leftRDD.spatialPartitionedRDDN2, judgement);
-        return joinResult.mapToPair(new PairFunction<Pair<Tuple2<Long,U>, Tuple2<Long,T>>, Tuple2<Long,U>, Tuple2<Long,T>>()
+
+        JavaPairRDD<Tuple2<Long,U>, Tuple2<Long,T>> joinResultf1=joinResult.mapToPair(new PairFunction<Pair<Tuple2<Long,U>, Tuple2<Long,T>>, Tuple2<Long,U>, Tuple2<Long,T>>()
         {
             @Override
             public Tuple2<Tuple2<Long,U>, Tuple2<Long,T>> call(Pair<Tuple2<Long,U>, Tuple2<Long,T>> pair)
                     throws Exception
             {
-                return new Tuple2<>(pair.getKey(), pair.getValue());
+               // System.out.println(pair.getKey()._1 +" "+pair.getKey()._2 +" "+pair.getValue()._1+" "+pair.getValue()._2);
+                return new Tuple2<>(new Tuple2<>(pair.getKey()._1,pair.getKey()._2),new Tuple2<>(pair.getValue()._1,pair.getValue()._2));
             }
         });
+
+        //this.boundaryRectRDD=this.spatialPartitionedRDDN2.filter(f-> (f._2()==5));
+        JavaPairRDD<Long,U> listAmap=joinResultf1.mapToPair(obj -> {
+            if(obj._1._2==null){
+                return new Tuple2<>(obj._1._1,null);
+            }
+            else{
+                return new Tuple2<>(null,null);
+            }
+        });
+        JavaPairRDD<Long,U> listA=listAmap.filter(f-> (f._2==null && f._1 !=null));
+        JavaPairRDD<Long,U> listAD=listA.distinct();
+        System.out.println(listAD.collect());
+
+        JavaPairRDD<Long,T> listBmap=joinResultf1.mapToPair(obj -> {
+            if(obj._2._2==null){
+                return new Tuple2<>(obj._2._1,null);
+            }
+            else{
+                return new Tuple2<>(null,null);
+            }
+        });
+        JavaPairRDD<Long,T> listB=listBmap.filter(f-> (f._2==null && f._1 !=null));
+        JavaPairRDD<Long,T> listBD=listB.distinct();
+        System.out.println(listBD.collect());
+
+        //System.out.println(listA.collect());
+        //System.out.println(listB.collect());
+
+        return joinResultf1;
+        /*return joinResult.mapToPair(new PairFunction<Pair<Tuple2<Long,U>, Tuple2<Long,T>>, Tuple2<Long,U>, Tuple2<Long,T>>()
+        {
+            @Override
+            public Tuple2<Tuple2<Long,U>, Tuple2<Long,T>> call(Pair<Tuple2<Long,U>, Tuple2<Long,T>> pair)
+                    throws Exception
+            {
+                System.out.println(pair.getKey()._1 +" "+pair.getKey()._2 +" "+pair.getValue()._1+" "+pair.getValue()._2);
+                return new Tuple2<>(new Tuple2<>(pair.getKey()._1,pair.getKey()._2),new Tuple2<>(pair.getValue()._1,pair.getValue()._2));
+            }
+        });*/
         //return null;
     }
 
