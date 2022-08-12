@@ -1,5 +1,5 @@
 site_name: Apache Sedona™ (incubating) 
-site_description: Apache Sedona (incubating) is a cluster computing system for processing large-scale spatial data. Sedona extends Apache Spark and Apache Flink with a set of out-of-the-box distributed Spatial Datasets and Spatial SQL that efficiently load, process, and analyze large-scale spatial data across machines.
+site_description: Apache Sedona (incubating) is a cluster computing system for processing large-scale spatial data. Sedona extends existing cluster computing systems, such as Apache Spark and Apache Flink, with a set of out-of-the-box distributed Spatial Datasets and Spatial SQL that efficiently load, process, and analyze large-scale spatial data across machines.
 nav:
     - Home: index.md
     - Setup:
@@ -160,7 +160,7 @@ extra:
     - icon: fontawesome/brands/twitter
       link: 'https://twitter.com/ApacheSedona'
   sedona:
-    current_version: 1.2.0-incubating
+    current_version: 1.2.1-incubating
     current_git_tag: sedona-1.2.1-incubating-rc1
     current_rc: 1.2.1-incubating-rc1
     current_snapshot: 1.2.1-incubating-SNAPSHOT

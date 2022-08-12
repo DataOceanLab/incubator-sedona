@@ -28,9 +28,10 @@ import org.apache.spark.sql.catalyst.util.GenericArrayData
 import org.apache.spark.sql.sedona_sql.UDT.GeometryUDT
 import org.apache.spark.sql.sedona_sql.expressions.geohash.GeoHashDecoder
 import org.apache.spark.sql.sedona_sql.expressions.implicits.{GeometryEnhancer, InputExpressionEnhancer, SequenceEnhancer}
-import org.apache.spark.sql.types.{DataType, Decimal}
+import org.apache.spark.sql.types.{BinaryType, DataType, Decimal, StringType}
 import org.apache.spark.unsafe.types.UTF8String
 import org.locationtech.jts.geom.{Coordinate, GeometryFactory}
+import org.locationtech.jts.io.WKBReader
 
 /**
   * Return a point from a string. The string must be plain string and each coordinate must be separated by a delimiter.
@@ -171,14 +172,17 @@ case class ST_GeomFromWKT(inputExpressions: Seq[Expression])
   // This is an expression which takes one input expressions
   assert(inputExpressions.length == 1)
 
-  override def nullable: Boolean = false
+  override def nullable: Boolean = true
 
   override def eval(inputRow: InternalRow): Any = {
-    val geomString = inputExpressions(0).eval(inputRow).asInstanceOf[UTF8String].toString
-    var fileDataSplitter = FileDataSplitter.WKT
-    var formatMapper = new FormatMapper(fileDataSplitter, false)
-    var geometry = formatMapper.readGeometry(geomString)
-    new GenericArrayData(GeometrySerializer.serialize(geometry))
+    (inputExpressions(0).eval(inputRow)) match {
+      case (geomString: UTF8String) => {
+        var fileDataSplitter = FileDataSplitter.WKT
+        var formatMapper = new FormatMapper(fileDataSplitter, false)
+        formatMapper.readGeometry(geomString.toString).toGenericArrayData
+      }
+      case null => null
+    }
   }
 
   override def dataType: DataType = GeometryUDT
@@ -201,14 +205,17 @@ case class ST_GeomFromText(inputExpressions: Seq[Expression])
   // This is an expression which takes one input expressions
   assert(inputExpressions.length == 1)
 
-  override def nullable: Boolean = false
+  override def nullable: Boolean = true
 
   override def eval(inputRow: InternalRow): Any = {
-    val geomString = inputExpressions(0).eval(inputRow).asInstanceOf[UTF8String].toString
-    var fileDataSplitter = FileDataSplitter.WKT
-    var formatMapper = new FormatMapper(fileDataSplitter, false)
-    var geometry = formatMapper.readGeometry(geomString)
-    new GenericArrayData(GeometrySerializer.serialize(geometry))
+    (inputExpressions(0).eval(inputRow)) match {
+      case (geomString: UTF8String) => {
+        var fileDataSplitter = FileDataSplitter.WKT
+        var formatMapper = new FormatMapper(fileDataSplitter, false)
+        formatMapper.readGeometry(geomString.toString).toGenericArrayData
+      }
+      case null => null
+    }
   }
 
   override def dataType: DataType = GeometryUDT
@@ -224,21 +231,29 @@ case class ST_GeomFromText(inputExpressions: Seq[Expression])
 /**
   * Return a Geometry from a WKB string
   *
-  * @param inputExpressions This function takes 1 parameter which is the geometry string. The string format must be WKB.
+  * @param inputExpressions This function takes 1 parameter which is the utf-8 encoded geometry wkb string or the binary wkb array.
   */
 case class ST_GeomFromWKB(inputExpressions: Seq[Expression])
   extends Expression with CodegenFallback with UserDataGeneratator {
   // This is an expression which takes one input expressions
   assert(inputExpressions.length == 1)
 
-  override def nullable: Boolean = false
+  override def nullable: Boolean = true
 
   override def eval(inputRow: InternalRow): Any = {
-    val geomString = inputExpressions.head.eval(inputRow).asInstanceOf[UTF8String].toString
-    var fileDataSplitter = FileDataSplitter.WKB
-    var formatMapper = new FormatMapper(fileDataSplitter, false)
-    var geometry = formatMapper.readGeometry(geomString)
-    new GenericArrayData(GeometrySerializer.serialize(geometry))
+    (inputExpressions.head.eval(inputRow)) match {
+      case (geomString: UTF8String) => {
+        // Parse UTF-8 encoded wkb string
+        val fileDataSplitter = FileDataSplitter.WKB
+        val formatMapper = new FormatMapper(fileDataSplitter, false)
+        formatMapper.readGeometry(geomString.toString).toGenericArrayData
+      }
+      case (wkb: Array[Byte]) => {
+        // convert raw wkb byte array to geometry
+        new WKBReader().read(wkb).toGenericArrayData
+      }
+      case null => null
+    }
   }
 
   override def dataType: DataType = GeometryUDT
