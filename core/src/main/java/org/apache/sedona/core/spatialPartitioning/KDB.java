@@ -354,40 +354,57 @@ public class KDB extends PartitioningUtils
                 continue;
             }
             Envelope obj=geometry._1.getEnvelopeInternal();
-            if(obj.getMinX() >= leaf.getExtent().getMinX() &&
-                    obj.getMinX() < leaf.getExtent().getMaxX() &&
-                    obj.getMinY() >= leaf.getExtent().getMinY() &&
-                    obj.getMinY() < leaf.getExtent().getMaxY()){
-                if(leaf.getExtent().contains(obj)){
-                    result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)1,geometry._2)));
-                    //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Obj: "+obj +" Grid:  "+ leaf.getExtent() +"  Class 1");
+            //System.out.println("Id "+geometry._2+" Obj: ("+obj.getMinX()+", "+obj.getMinY() + ") Grid:"+leaf.getExtent());
+            //System.out.println(obj+"  "+leaf.getExtent()+" "+ leaf.getExtent().covers(obj));
+            if((obj.getMinX() >= leaf.getExtent().getMinX() &&
+                    obj.getMinX() < leaf.getExtent().getMaxX()) &&
+                    (obj.getMinY() >= leaf.getExtent().getMinY() &&
+                            obj.getMinY() < leaf.getExtent().getMaxY())){
 
+                /*if(leaf.getExtent().covers(obj) && !coversOnBoundary(leaf.getExtent(),obj)){
+                        result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)1,geometry._2)));
+                        System.out.println(geometry._2+" "+obj+"  "+leaf.getExtent()+" "+ coversOnBoundary(leaf.getExtent(),obj)+" 1 check");
                 }else {
                     result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)5,geometry._2)));
+                    System.out.println(geometry._2+" "+obj+"  "+leaf.getExtent()+" "+ coversOnBoundary(leaf.getExtent(),obj)+" 5");
+                    //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Obj: "+obj + " Grid:  "+ leaf.getExtent() +"  Class 5");
+                }*/
+                if(fullyCoveredByFst(leaf.getExtent(),obj)){
+                    result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)1,geometry._2)));
+                    //System.out.println(geometry._2+" "+obj+"  "+leaf.getExtent()+" "+ coversOnBoundary(leaf.getExtent(),obj)+" 1 check");
+                }else {
+                    result.add(new Tuple2(leaf.getLeafId(), new Tuple3(geometry._1,(short)5,geometry._2)));
+                    //System.out.println(geometry._2+" "+obj+"  "+leaf.getExtent()+" "+ coversOnBoundary(leaf.getExtent(),obj)+" 5");
                     //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Obj: "+obj + " Grid:  "+ leaf.getExtent() +"  Class 5");
                 }
 
             }
             else if((obj.getMinX() >= leaf.getExtent().getMinX() &&
                     obj.getMinX() < leaf.getExtent().getMaxX()) &&
-                    (obj.getMinY() > leaf.getExtent().getMinY() ||
+                    !(obj.getMinY() >= leaf.getExtent().getMinY() &&
                             obj.getMinY() < leaf.getExtent().getMaxY())){
                 //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class B");
                 result.add(new Tuple2(leaf.getLeafId(), new Tuple3(null,(short)2,geometry._2)));
+                //System.out.println(geometry._2+" "+obj+"  "+leaf.getExtent()+" "+ leaf.getExtent().intersects(obj)+" 2");
+
             }
-            else if((obj.getMinX() > leaf.getExtent().getMinX() ||
+            else if(!(obj.getMinX() >= leaf.getExtent().getMinX() &&
                     obj.getMinX() < leaf.getExtent().getMaxX()) &&
                     (obj.getMinY() >= leaf.getExtent().getMinY() &&
                             obj.getMinY() < leaf.getExtent().getMaxY())){
                 //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+" Grid:  "+ leaf.getExtent() +"  Class C");
                 result.add(new Tuple2(leaf.getLeafId(), new Tuple3(null,(short)3,geometry._2)));
+                //System.out.println(geometry._2+" "+obj+"  "+leaf.getExtent()+" "+ coversOnBoundary(leaf.getExtent(),obj)+" 3");
+
             }
-            else if((obj.getMinX() > leaf.getExtent().getMinX() ||
+            else if(!(obj.getMinX() >= leaf.getExtent().getMinX() &&
                     obj.getMinX() < leaf.getExtent().getMaxX()) &&
-                    (obj.getMinY() > leaf.getExtent().getMinY() ||
+                    !(obj.getMinY() >= leaf.getExtent().getMinY() &&
                             obj.getMinY() < leaf.getExtent().getMaxY())){
                 //System.out.println("Object "+obj.getMinX() +" "+obj.getMinY()+ " Grid:  "+ leaf.getExtent() +"  Class D");
                 result.add(new Tuple2(leaf.getLeafId(), new Tuple3(null,(short)4,geometry._2)));
+                //System.out.println(geometry._2+" "+obj+"  "+leaf.getExtent()+" "+ leaf.getExtent().contains(obj)+" 4");
+
             }
 
             //System.out.println("Grid X range: " +  leaf.getExtent().getMinX() + " "+leaf.getExtent().getMaxX() +"    Y Range: "+ leaf.getExtent().getMinY() + " "+leaf.getExtent().getMaxY() );
@@ -420,7 +437,20 @@ public class KDB extends PartitioningUtils
         }
         return result;
     }
-
+    public static boolean fullyCoveredByFst(Envelope e1, Envelope e2) {
+        if (e1.isNull() || e2.isNull()) { return false; }
+        return e2.getMinX() > e1.getMinX() &&
+                e2.getMaxX() < e1.getMaxX() &&
+                e2.getMinY() > e1.getMinY() &&
+                e2.getMaxY() < e1.getMaxY();
+    }
+    public static boolean coversOnBoundary(Envelope e1, Envelope e2) {
+        if (e1.isNull() || e2.isNull()) { return false; }
+        return e2.getMinX() == e1.getMinX() ||
+                e2.getMaxX() == e1.getMaxX() ||
+                e2.getMinY() == e1.getMinY() ||
+                e2.getMaxY() == e1.getMaxY();
+    }
     @Override
     public List<Envelope> fetchLeafZones() {
         final List<Envelope> leafs = new ArrayList<>();

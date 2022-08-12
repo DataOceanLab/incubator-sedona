@@ -76,6 +76,9 @@ public class SpatialRDD<T extends Geometry>
      * The total number of records.
      */
     public long approximateTotalCount = -1;
+
+    public long requiredFromBRDD = 0;
+
     /**
      * The average mbrArea of the records.
      */
@@ -109,6 +112,7 @@ public class SpatialRDD<T extends Geometry>
      */
     public double load_balance = 0.0;
     public double load_balanceN = 0.0;
+    public double load_balanceO = 0.0;
     public double load_balanceBRN = 0.0;
 
     /**
@@ -285,7 +289,7 @@ public class SpatialRDD<T extends Geometry>
             //this.load_balance=this.load_balance+(double)data._4();
             countData=countData+(long)data._4();
         }
-        double avgCard=countData/this.spatialPartitionedRDD.getNumPartitions();
+        double avgCard=countData/this.spatialPartitionedRDDN2.getNumPartitions();
 
         for (Tuple4 data:mapJavaRDD.collect()) {
             this.load_balance=this.load_balance+Math.pow(((long)data._4()-avgCard),2);
@@ -316,28 +320,32 @@ public class SpatialRDD<T extends Geometry>
         this.total_cells=this.spatialPartitionedRDDN2.getNumPartitions();
         //double avgCard=this.spatialPartitionedRDD.count()/this.spatialPartitionedRDD.getNumPartitions();
         long countData=0;
-        JavaRDD<Tuple4<Double,Double,Envelope,Long>> mapJavaRDD = this.spatialPartitionedRDDN2.mapPartitions(new FlatMapFunction<Iterator<Tuple3<Geometry,Short,Long>>, Tuple4<Double,Double,Envelope,Long>>() {
+        long countDataOld=0;
+        JavaRDD<Tuple5<Double,Double,Envelope,Long,Long>> mapJavaRDD = this.spatialPartitionedRDDN2.mapPartitions(new FlatMapFunction<Iterator<Tuple3<Geometry,Short,Long>>, Tuple5<Double,Double,Envelope,Long,Long>>() {
             @Override
-            public Iterator<Tuple4<Double,Double,Envelope,Long>> call(Iterator<Tuple3<Geometry,Short,Long>> tIterator) throws Exception {
-                ArrayList<Tuple4<Double,Double,Envelope,Long>> wkbs = new ArrayList<>();
+            public Iterator<Tuple5<Double,Double,Envelope,Long,Long>> call(Iterator<Tuple3<Geometry,Short,Long>> tIterator) throws Exception {
+                ArrayList<Tuple5<Double,Double,Envelope,Long,Long>> wkbs = new ArrayList<>();
                 ArrayList<Envelope> partitionENV = new ArrayList<>();
                 long count=0;
+                long countWithNull=0;
                 Envelope accENV=new Envelope(0,0,0,0);
                 while(tIterator.hasNext()){
                     Tuple3 <Geometry,Short,Long> nxt=tIterator.next();
                     if(nxt._1() == null){
+                        countWithNull++;
                         continue;
                     }
                     Geometry spatialObject = nxt._1();
                     Envelope spatialObjectMBr= spatialObject.getEnvelopeInternal();
                     accENV.expandToInclude(spatialObjectMBr);
                     count++;
+                    countWithNull++;
                 }
                 //double partitionLBCalc=Math.pow((double) (count-avgCard),2);// Cardinality per partition minus avgCard
                 partitionENV.add(accENV);
                 double envMBRArea=accENV.getArea();
                 double envSemiPerim=(accENV.getHeight()+ accENV.getWidth())/2;
-                wkbs.add(new Tuple4<>(envMBRArea,envSemiPerim,accENV,count));
+                wkbs.add(new Tuple5<>(envMBRArea,envSemiPerim,accENV,count,countWithNull));
                 return wkbs.iterator();
             }
         });
@@ -356,17 +364,22 @@ public class SpatialRDD<T extends Geometry>
                 return wkbs.iterator();
             }
         });
-        for (Tuple4 data:mapJavaRDD.collect()) {
+        for (Tuple5 data:mapJavaRDD.collect()) {
             this.TT_area=this.TT_area+ (double)data._1();
             this.TT_margin=this.TT_margin+ (double)data._2();
             //this.load_balance=this.load_balance+(double)data._4();
             countData=countData+(long)data._4();
+            countDataOld=countDataOld+(long)data._5();
         }
         double avgCard=countData/this.spatialPartitionedRDDN2.getNumPartitions();
-        for (Tuple4 data:mapJavaRDD.collect()) {
+        double avgCardOld=countDataOld/this.spatialPartitionedRDDN2.getNumPartitions();
+
+        for (Tuple5 data:mapJavaRDD.collect()) {
             this.load_balanceN=this.load_balanceN+Math.pow(((long)data._4()-avgCard),2);
+            this.load_balanceO=this.load_balanceO+Math.pow(((long)data._5()-avgCard),2);
         }
         this.load_balanceN=Math.sqrt((this.load_balanceN/countData));
+        this.load_balanceO=Math.sqrt((this.load_balanceO/countDataOld));
 
         long brCount=this.boundaryRectRDD.count();
         double avgCardBR=brCount/this.boundaryRectRDD.getNumPartitions();

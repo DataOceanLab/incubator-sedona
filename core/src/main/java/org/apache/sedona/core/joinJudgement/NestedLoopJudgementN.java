@@ -78,6 +78,9 @@ public class NestedLoopJudgementN<T extends Geometry, U extends Geometry>
                     }
                 }
                 else if(window._1()==null || object._2()== null){
+                    if(window._1()==null && object._2()== null){
+                        continue;
+                    }
                     if(window._2()==1 || window._2()==5){
                         if(object._3()==1 || object._3()==5 ||object._3()==3 || object._3()==2 || object._3()==4){
                             result.add(Pair.of(new Tuple2<>(window._3(),window._1()), new Tuple2<>(object._1(),object._2())));

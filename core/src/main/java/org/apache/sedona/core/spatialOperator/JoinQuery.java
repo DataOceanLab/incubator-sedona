@@ -432,11 +432,17 @@ public class JoinQuery
             JoinParams joinParams)
             throws Exception {
 
-        for (Tuple3 t: leftRDD.spatialPartitionedRDDN2.collect()
-             ) {
-            System.out.println(t._1()+"  "+t._2() + " "+t._3());
+
+        /*System.out.println("BRDD A: ");
+        for (Tuple3 t: leftRDD.boundaryRectRDD.collect()) {
+            System.out.print(t._3()+" ");
         }
-        System.out.println(leftRDD.boundaryRectRDD.collect());
+        System.out.println("BRDD B: ");
+        for (Tuple3 t: rightRDD.boundaryRectRDD.collect()) {
+            System.out.print(t._3()+" ");
+        }
+        System.out.println(rightRDD.total_cells);*/
+
         //System.out.println(rightRDD.boundaryRectRDD.collect());
 
         final SparkContext cxt = leftRDD.rawSpatialRDDN.context();
@@ -472,7 +478,7 @@ public class JoinQuery
         });
         JavaPairRDD<Long,U> listA=listAmap.filter(f-> (f._2==null && f._1 !=null));
         JavaPairRDD<Long,U> listAD=listA.distinct();
-        System.out.println(listAD.collect());
+        leftRDD.requiredFromBRDD=listAD.count();
 
         JavaPairRDD<Long,T> listBmap=joinResultf1.mapToPair(obj -> {
             if(obj._2._2==null){
@@ -484,7 +490,7 @@ public class JoinQuery
         });
         JavaPairRDD<Long,T> listB=listBmap.filter(f-> (f._2==null && f._1 !=null));
         JavaPairRDD<Long,T> listBD=listB.distinct();
-        System.out.println(listBD.collect());
+        rightRDD.requiredFromBRDD=listBD.count();
 
         //System.out.println(listA.collect());
         //System.out.println(listB.collect());
