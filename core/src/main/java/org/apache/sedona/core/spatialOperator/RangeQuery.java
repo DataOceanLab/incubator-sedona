@@ -20,6 +20,7 @@
 package org.apache.sedona.core.spatialOperator;
 
 import org.apache.sedona.core.rangeJudgement.RangeFilter;
+import org.apache.sedona.core.rangeJudgement.RangeFilterN;
 import org.apache.sedona.core.rangeJudgement.RangeFilterUsingIndex;
 import org.apache.sedona.core.spatialRDD.SpatialRDD;
 import org.apache.sedona.core.utils.CRSTransformation;
@@ -91,6 +92,39 @@ public class RangeQuery
         GeometryFactory geometryFactory = new GeometryFactory();
         U queryGeometry = (U) geometryFactory.createPolygon(coordinates);
         return SpatialRangeQuery(spatialRDD, queryGeometry, considerBoundaryIntersection, useIndex);
+    }
+    //aabir
+    public static <U extends Geometry, T extends Geometry> JavaRDD<T> SpatialRangeQueryN(SpatialRDD<T> spatialRDD, Envelope queryWindow, boolean considerBoundaryIntersection, boolean useIndex)
+            throws Exception
+    {
+        Coordinate[] coordinates = new Coordinate[5];
+        coordinates[0] = new Coordinate(queryWindow.getMinX(), queryWindow.getMinY());
+        coordinates[1] = new Coordinate(queryWindow.getMinX(), queryWindow.getMaxY());
+        coordinates[2] = new Coordinate(queryWindow.getMaxX(), queryWindow.getMaxY());
+        coordinates[3] = new Coordinate(queryWindow.getMaxX(), queryWindow.getMinY());
+        coordinates[4] = coordinates[0];
+        GeometryFactory geometryFactory = new GeometryFactory();
+        U queryGeometry = (U) geometryFactory.createPolygon(coordinates);
+        return SpatialRangeQueryN(spatialRDD, queryGeometry, considerBoundaryIntersection, useIndex);
+    }
+
+    public static <U extends Geometry, T extends Geometry> JavaRDD<T> SpatialRangeQueryN(SpatialRDD<T> spatialRDD, U originalQueryGeometry, boolean considerBoundaryIntersection, boolean useIndex)
+            throws Exception
+    {
+        U queryGeometry = originalQueryGeometry;
+        if (spatialRDD.getCRStransformation()) {
+            queryGeometry = CRSTransformation.Transform(spatialRDD.getSourceEpsgCode(), spatialRDD.getTargetEpgsgCode(), originalQueryGeometry);
+        }
+
+        if (useIndex == true) {
+            if (spatialRDD.indexedRawRDD == null) {
+                throw new Exception("[RangeQuery][SpatialRangeQuery] Index doesn't exist. Please build index on rawSpatialRDD.");
+            }
+            return spatialRDD.indexedRawRDD.mapPartitions(new RangeFilterUsingIndex(queryGeometry, considerBoundaryIntersection, true));
+        }
+        else {
+            return spatialRDD.spatialPartitionedRDDN2.filter(new RangeFilterN(queryGeometry, considerBoundaryIntersection, true));
+        }
     }
 
     /**

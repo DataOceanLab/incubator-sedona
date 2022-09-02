@@ -147,6 +147,9 @@ public class SpatialRDD<T extends Geometry>
     public JavaRDD<Tuple2<T,Short>> spatialPartitionedRDDN;
     public JavaRDD<Tuple3<Geometry,Short,Long>> spatialPartitionedRDDN2;
     public JavaRDD<Tuple3<Geometry,Short,Long>> boundaryRectRDD;
+    public JavaPairRDD<Long,Geometry> boundaryRectRDDFormat;
+
+
 
     /**
      * The indexed RDD.
@@ -371,12 +374,13 @@ public class SpatialRDD<T extends Geometry>
             countData=countData+(long)data._4();
             countDataOld=countDataOld+(long)data._5();
         }
+
         double avgCard=countData/this.spatialPartitionedRDDN2.getNumPartitions();
         double avgCardOld=countDataOld/this.spatialPartitionedRDDN2.getNumPartitions();
 
         for (Tuple5 data:mapJavaRDD.collect()) {
             this.load_balanceN=this.load_balanceN+Math.pow(((long)data._4()-avgCard),2);
-            this.load_balanceO=this.load_balanceO+Math.pow(((long)data._5()-avgCard),2);
+            this.load_balanceO=this.load_balanceO+Math.pow(((long)data._5()-avgCardOld),2);
         }
         this.load_balanceN=Math.sqrt((this.load_balanceN/countData));
         this.load_balanceO=Math.sqrt((this.load_balanceO/countDataOld));
@@ -517,7 +521,13 @@ public class SpatialRDD<T extends Geometry>
         this.spatialPartitionedRDD = partition(partitioner);
         this.spatialPartitionedRDDN2= partitionN2(partitioner);
         this.boundaryRectRDD=this.spatialPartitionedRDDN2.filter(f-> (f._2()==5));
-        this.analyzePartition();
+        this.boundaryRectRDDFormat=this.boundaryRectRDD.flatMapToPair(data->{
+            List<Tuple2<Long,Geometry>> resu=new ArrayList<>();
+            resu.add(new Tuple2<>(data._3(), data._1()));
+            return resu.iterator();
+        });
+        //this.analyzePartition();
+        this.analyzePartitionN();
 
     }
 
@@ -531,7 +541,17 @@ public class SpatialRDD<T extends Geometry>
         this.spatialPartitionedRDD = partition(partitioner);
         this.spatialPartitionedRDDN2= partitionN2(partitioner);
         this.boundaryRectRDD=this.spatialPartitionedRDDN2.filter(f-> (f._2()==5));
-        this.analyzePartition();
+        this.boundaryRectRDDFormat=this.boundaryRectRDD.flatMapToPair(data->{
+            List<Tuple2<Long,Geometry>> resu=new ArrayList<>();
+            resu.add(new Tuple2<>(data._3(), data._1()));
+            return resu.iterator();
+        });
+
+        //this.analyzePartition();
+        this.analyzePartitionN();
+    }
+    public void unionBoundaryEnvelope(SpatialPartitioner partitioner, Envelope brEnvOther) throws Exception {
+
     }
 
     /**

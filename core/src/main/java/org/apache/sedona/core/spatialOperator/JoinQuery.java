@@ -34,18 +34,19 @@ import org.apache.sedona.core.utils.GeomUtils;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.FlatMapFunction2;
 import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.sedona.core.monitoring.Metrics;
+import org.apache.spark.broadcast.Broadcast;
 import org.locationtech.jts.geom.Geometry;
 import scala.Tuple2;
 import scala.Tuple3;
 import scala.Tuple4;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public class JoinQuery
 {
@@ -468,7 +469,7 @@ public class JoinQuery
         });
 
         //this.boundaryRectRDD=this.spatialPartitionedRDDN2.filter(f-> (f._2()==5));
-        JavaPairRDD<Long,U> listAmap=joinResultf1.mapToPair(obj -> {
+        /*JavaPairRDD<Long,U> listAmap=joinResultf1.mapToPair(obj -> {
             if(obj._1._2==null){
                 return new Tuple2<>(obj._1._1,null);
             }
@@ -479,6 +480,7 @@ public class JoinQuery
         JavaPairRDD<Long,U> listA=listAmap.filter(f-> (f._2==null && f._1 !=null));
         JavaPairRDD<Long,U> listAD=listA.distinct();
         leftRDD.requiredFromBRDD=listAD.count();
+        System.out.println(leftRDD.requiredFromBRDD);
 
         JavaPairRDD<Long,T> listBmap=joinResultf1.mapToPair(obj -> {
             if(obj._2._2==null){
@@ -487,15 +489,40 @@ public class JoinQuery
             else{
                 return new Tuple2<>(null,null);
             }
-        });
-        JavaPairRDD<Long,T> listB=listBmap.filter(f-> (f._2==null && f._1 !=null));
+        });*/
+        /*JavaPairRDD<Long,T> listB=listBmap.filter(f-> (f._2==null && f._1 !=null));
         JavaPairRDD<Long,T> listBD=listB.distinct();
-        rightRDD.requiredFromBRDD=listBD.count();
+        rightRDD.requiredFromBRDD=listBD.count();*/
+        //System.out.println(rightRDD.requiredFromBRDD);
+        Map<Long,Geometry> mapListA=leftRDD.boundaryRectRDDFormat.collectAsMap();
+        Map<Long,Geometry> mapListB=rightRDD.boundaryRectRDDFormat.collectAsMap();
+        Broadcast<Map<Long,Geometry>> broadcastListA = new JavaSparkContext(cxt).broadcast(mapListA);
+        Broadcast<Map<Long,Geometry>> broadcastListB = new JavaSparkContext(cxt).broadcast(mapListB);
 
-        //System.out.println(listA.collect());
-        //System.out.println(listB.collect());
+        JavaPairRDD<Tuple2<Long,U>, Tuple2<Long,T>> joinResultfinal=joinResultf1.flatMapToPair(data->{
+            List<Tuple2<Tuple2<Long,U>,Tuple2<Long,T>>> resu=new ArrayList<>();
+            if(data._1._2== null || data._2._2==null){
+                Geometry objA= (data._1._2== null)? broadcastListA.value().get(data._1._1):data._1._2;
+                Geometry objB= (data._2._2== null)? broadcastListB.value().get(data._2._1):data._2._2;
+                if (objA.covers(objB)){
+                    resu.add(new Tuple2<Tuple2<Long,U>, Tuple2<Long,T>>(new Tuple2<Long,U>(data._1._1, (U) objA),new Tuple2<Long,T>(data._2._1, (T) objB)));
+                }
 
-        return joinResultf1;
+            }else{
+                //if(data._1._2.intersects(data._2._2)){
+                    resu.add(new Tuple2<>(data._1,data._2));
+                //}
+            }
+            return resu.iterator();
+        });
+
+
+        //System.out.println("New Method Res: "+joinResultfinal.distinct().count());
+        /*for (Tuple2 t:
+             joinResultfinal.collect()) {
+            //System.out.println(t._1+"   "+t._2);
+        }*/
+        return joinResultfinal;
         /*return joinResult.mapToPair(new PairFunction<Pair<Tuple2<Long,U>, Tuple2<Long,T>>, Tuple2<Long,U>, Tuple2<Long,T>>()
         {
             @Override

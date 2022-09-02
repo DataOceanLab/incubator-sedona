@@ -73,12 +73,14 @@ public class NestedLoopJudgementN<T extends Geometry, U extends Geometry>
                 Tuple3<Long,T,Short> object=queryObjects.get(i);
                 //log.warn("Check "+window.toText()+" with "+object.toText());
                 if (window._1() != null && object._2() !=null ) {
-                    if(window._1().intersects(object._2())) {
+                    //if(window._1().intersects(object._2())) {
+                    if(window._1().covers(object._2())) {
                         result.add(Pair.of(new Tuple2<>(window._3(),window._1()), new Tuple2<>(object._1(),object._2())));
                     }
                 }
                 else if(window._1()==null || object._2()== null){
                     if(window._1()==null && object._2()== null){
+                        //result.add(Pair.of(new Tuple2<>(window._3(),window._1()), new Tuple2<>(object._1(),object._2())));
                         continue;
                     }
                     if(window._2()==1 || window._2()==5){
@@ -102,6 +104,7 @@ public class NestedLoopJudgementN<T extends Geometry, U extends Geometry>
                         }
                     }
                 }
+
             }
         }
         return result.iterator();
