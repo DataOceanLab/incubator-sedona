@@ -27,6 +27,7 @@ import org.apache.sedona.core.enums.IndexType;
 import org.apache.sedona.core.spatialPartitioning.*;
 import org.apache.sedona.core.spatialPartitioning.quadtree.StandardQuadTree;
 import org.apache.sedona.core.spatialRddTool.IndexBuilder;
+import org.apache.sedona.core.spatialRddTool.IndexBuilderN;
 import org.apache.sedona.core.spatialRddTool.StatCalculator;
 import org.apache.sedona.core.utils.GeomUtils;
 import org.apache.sedona.core.utils.RDDSampleUtils;
@@ -148,6 +149,8 @@ public class SpatialRDD<T extends Geometry>
     public JavaRDD<Tuple3<Geometry,Short,Long>> spatialPartitionedRDDN2;
     public JavaRDD<Tuple3<Geometry,Short,Long>> boundaryRectRDD;
     public JavaPairRDD<Long,Geometry> boundaryRectRDDFormat;
+    public JavaRDD<SpatialIndex> indexedRDDN;
+    public JavaRDD<SpatialIndex> indexedRawRDDN;
 
 
 
@@ -256,7 +259,7 @@ public class SpatialRDD<T extends Geometry>
     {
         int numPartitions = this.rawSpatialRDD.rdd().partitions().length;
         spatialPartitioning(gridType, numPartitions);
-        //this.analyzePartition();
+        this.analyzePartition();
         return true;
     }
     public void analyzePartition()
@@ -760,6 +763,20 @@ public class SpatialRDD<T extends Geometry>
                 throw new Exception("[AbstractSpatialRDD][buildIndex] spatialPartitionedRDD is null. Please do spatial partitioning before build index.");
             }
             this.indexedRDD = this.spatialPartitionedRDD.mapPartitions(new IndexBuilder(indexType));
+        }
+    }
+    public void buildIndexN(final IndexType indexType, boolean buildIndexOnSpatialPartitionedRDD)
+            throws Exception
+    {
+        if (buildIndexOnSpatialPartitionedRDD == false) {
+            //This index is built on top of unpartitioned SRDD
+            this.indexedRawRDDN = this.rawSpatialRDDN.mapPartitions(new IndexBuilderN(indexType));
+        }
+        else {
+            if (this.spatialPartitionedRDDN2 == null) {
+                throw new Exception("[AbstractSpatialRDD][buildIndex] spatialPartitionedRDD is null. Please do spatial partitioning before build index.");
+            }
+            this.indexedRDDN = this.spatialPartitionedRDDN2.mapPartitions(new IndexBuilderN(indexType));
         }
     }
 

@@ -117,10 +117,10 @@ public class RangeQuery
         }
 
         if (useIndex == true) {
-            if (spatialRDD.indexedRawRDD == null) {
+            if (spatialRDD.indexedRDDN == null) {
                 throw new Exception("[RangeQuery][SpatialRangeQuery] Index doesn't exist. Please build index on rawSpatialRDD.");
             }
-            return spatialRDD.indexedRawRDD.mapPartitions(new RangeFilterUsingIndex(queryGeometry, considerBoundaryIntersection, true));
+            return spatialRDD.indexedRDDN.mapPartitions(new RangeFilterUsingIndex(queryGeometry, considerBoundaryIntersection, true));
         }
         else {
             return spatialRDD.spatialPartitionedRDDN2.filter(new RangeFilterN(queryGeometry, considerBoundaryIntersection, true));
