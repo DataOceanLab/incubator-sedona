@@ -42,8 +42,10 @@ object SpatialJoinTest extends App{
   var total_time_new=0.0
 
 	var sparkSession:SparkSession = SparkSession.builder().config("spark.serializer",classOf[KryoSerializer].getName).
-		config("spark.kryo.registrator", classOf[SedonaKryoRegistrator].getName).
-		master("local[*]").appName("SedonaSQL-demo").getOrCreate()
+		config("spark.kryo.registrator", classOf[SedonaKryoRegistrator].getName)
+    //.master("local[*]")
+    .appName("SedonaSQL-demo")
+    .getOrCreate()
 
 	//SedonaSQLRegistrator.registerAll(sparkSession)
   //SedonaVizRegistrator.registerAll(sparkSession)
