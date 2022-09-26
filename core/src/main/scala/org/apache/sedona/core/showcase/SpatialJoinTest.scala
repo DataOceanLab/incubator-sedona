@@ -43,7 +43,7 @@ object SpatialJoinTest extends App{
 
 	var sparkSession:SparkSession = SparkSession.builder().config("spark.serializer",classOf[KryoSerializer].getName).
 		config("spark.kryo.registrator", classOf[SedonaKryoRegistrator].getName)
-    //.master("local[*]")
+    .master("local[*]")
     .appName("SedonaSQL-demo")
     .getOrCreate()
 
