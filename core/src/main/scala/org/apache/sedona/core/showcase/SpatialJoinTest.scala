@@ -85,7 +85,7 @@ object SpatialJoinTest extends App{
             //}
           }
         if(count==1){
-          break
+          //break
         }
 
       }
