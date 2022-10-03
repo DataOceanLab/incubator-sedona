@@ -494,10 +494,17 @@ public class JoinQuery
         JavaPairRDD<Long,T> listBD=listB.distinct();
         rightRDD.requiredFromBRDD=listBD.count();*/
         //System.out.println(rightRDD.requiredFromBRDD);
-        Map<Long,Geometry> mapListA=leftRDD.boundaryRectRDDFormat.collectAsMap();
-        Map<Long,Geometry> mapListB=rightRDD.boundaryRectRDDFormat.collectAsMap();
-        Broadcast<Map<Long,Geometry>> broadcastListA = new JavaSparkContext(cxt).broadcast(mapListA);
-        Broadcast<Map<Long,Geometry>> broadcastListB = new JavaSparkContext(cxt).broadcast(mapListB);
+//        Map<Long,Geometry> mapListA=leftRDD.boundaryRectRDDFormat.collectAsMap();
+//        Map<Long,Geometry> mapListB=rightRDD.boundaryRectRDDFormat.collectAsMap();
+//        Broadcast<Map<Long,Geometry>> broadcastListA = new JavaSparkContext(cxt).broadcast(mapListA);
+//        Broadcast<Map<Long,Geometry>> broadcastListB = new JavaSparkContext(cxt).broadcast(mapListB);
+        Map<Long,Geometry> mapListAhash= new HashMap<>();
+        mapListAhash.putAll(leftRDD.boundaryRectRDDFormat.collectAsMap());
+        Broadcast<Map<Long,Geometry>> broadcastListA = new JavaSparkContext(cxt).broadcast(mapListAhash);
+        Map<Long,Geometry> mapListBhash= new HashMap<>();
+        mapListBhash.putAll(rightRDD.boundaryRectRDDFormat.collectAsMap());
+        Broadcast<Map<Long,Geometry>> broadcastListB = new JavaSparkContext(cxt).broadcast(mapListBhash);
+
 
         JavaPairRDD<Tuple2<Long,U>, Tuple2<Long,T>> joinResultfinal=joinResultf1.flatMapToPair(data->{
             List<Tuple2<Tuple2<Long,U>,Tuple2<Long,T>>> resu=new ArrayList<>();
