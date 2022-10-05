@@ -43,8 +43,8 @@ object SpatialJoinTest extends App{
 
 	var sparkSession:SparkSession = SparkSession.builder().config("spark.serializer",classOf[KryoSerializer].getName).
 		config("spark.kryo.registrator", classOf[SedonaKryoRegistrator].getName)
-    //.config("spark.executor.memory","100g")
-    //.config("spark.driver.memory","10g")
+    //.config("spark.executor.memory","80g")
+    //.config("spark.driver.memory","50g")
     //.master("local[*]")
     .appName("SedonaSQL-demo")
     .getOrCreate()
@@ -77,14 +77,13 @@ object SpatialJoinTest extends App{
           {
             count=count+1;
             println(plD1.getName()+"  "+plD2.getName()+" "+ count)
-            //try {
+            try {
                 testNewRangeJoinQueryNFileparam(plD1, plD2)
-            //}
-            //catch {
-            //  case ex: Throwable => println("Found an exception: " + ex)
-              //println("spoData: "+appName+","+startTime +","+endTime+","+ptCardinal+","+plCardinal+","+pointRDD.spatialPartitionedRDD.rdd.getNumPartitions+","+polygonRDD.spatialPartitionedRDD.rdd.getNumPartitions+","++"");
+            }
+            catch {
+              case ex: Throwable => println("Found an exception: " + ex)
 
-            //}
+            }
           }
         if(count==1){
           //break
@@ -166,6 +165,52 @@ object SpatialJoinTest extends App{
     total_time_raw=0.0
     total_time_new=0.0
     val num_exp=5
+    print("beforeJoin: "+polgonFileD1.getName()+","+
+      rwCntD1+","+
+      spCntD1+","+
+      brCntD1+","+
+      (brCntD1.toDouble/rwCntD1.toDouble)+","+ //boundary rectangle ratio
+      polygonRDD.requiredFromBRDD+","+
+      (spCntD1-rwCntD1)+","+ //number of duplicates
+      ((spCntD1-rwCntD1).toDouble/rwCntD1.toDouble)+","+ //duplicate ratio
+      polygonRDD.avgMBRArea+","+
+      polygonRDD.avgLenX+","+
+      polygonRDD.avgLenY+","+
+      polygonRDD.E_0+","+
+      polygonRDD.E_2+","+
+      polygonRDD.TT_area+","+
+      polygonRDD.TT_margin+","+
+      polygonRDD.TT_overlap+","+
+      polygonRDD.spatialPartitionedRDDN2.getNumPartitions+","+
+      polygonRDD.load_balanceO+","+
+      polygonRDD.load_balanceN+","+
+      polygonRDD.load_balanceBRN+","+
+      polgonFileD2.getName()+","+
+      rwCntD2+","+
+      spCntD2+","+
+      brCntD2+","+
+      (brCntD2.toDouble/rwCntD2.toDouble)+","+ //boundary rectangle ratio
+      polygonRDD2.requiredFromBRDD+","+
+      (spCntD2-rwCntD2)+","+ //number of duplicates
+      ((spCntD2-rwCntD2).toDouble/rwCntD2.toDouble)+","+ //duplicate ratio
+      polygonRDD2.avgMBRArea+","+
+      polygonRDD2.avgLenX+","+
+      polygonRDD2.avgLenY+","+
+      polygonRDD2.E_0+","+
+      polygonRDD2.E_2+","+
+      polygonRDD2.TT_area+","+
+      polygonRDD2.TT_margin+","+
+      polygonRDD2.TT_overlap+","+
+      polygonRDD2.spatialPartitionedRDDN2.getNumPartitions+","+
+      polygonRDD2.load_balanceO+","+
+      polygonRDD2.load_balanceN+","+
+      polygonRDD2.load_balanceBRN+","+
+      polygonRDD2.overlapMBRFirstDS+","+
+      polygonRDD2.overlapMBRSecondDS+","+
+      polygonRDD2.jaccardSimilarity+","+
+      elapsedTimeOld+","+
+      elapsedTimeNew+","+
+      joinCardN)
     for( a <- 1 to num_exp){
       var t0 = System.nanoTime()
       val result= JoinQuery.SpatialJoinQueryFlat(polygonRDD2,polygonRDD,usingIndex,considerBoundaryIntersection);
